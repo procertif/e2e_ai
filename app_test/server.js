@@ -8,6 +8,7 @@ const E2E_DIR = path.resolve(__dirname, "..");
 const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
 const GROUPS_FILE = path.join(__dirname, "groups.json");
+const SESSION_FILE = path.join(__dirname, "last-session.json");
 
 function parseEnvFile(filePath) {
 	try {
@@ -259,6 +260,31 @@ http
 		if (req.method === "GET" && pathname === "/api/groups") {
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify(loadGroups()));
+			return;
+		}
+
+		if (req.method === "POST" && pathname === "/api/session") {
+			try {
+				const body = await readBody(req);
+				fs.writeFileSync(SESSION_FILE, JSON.stringify(body, null, 2));
+				res.writeHead(204);
+				res.end();
+			} catch {
+				res.writeHead(400);
+				res.end("Bad request");
+			}
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/api/session") {
+			try {
+				const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(data));
+			} catch {
+				res.writeHead(404);
+				res.end("No session");
+			}
 			return;
 		}
 

@@ -1,0 +1,13 @@
+{
+  "all": [
+    "cas1-quiz-noai",
+    "cas2-quiz-noai",
+    "cas3-quiz-noai",
+    "cas4-quiz-noai",
+    "cas1-jury-noai"
+  ],
+  "failed": [
+    "cas3-quiz-noai",
+    "cas1-jury-noai"
+  ]
+}

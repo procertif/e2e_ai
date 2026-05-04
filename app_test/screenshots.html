@@ -82,17 +82,24 @@
   let lightboxItems = [];
   let lightboxIndex = 0;
 
-  const urlFolders = new URLSearchParams(window.location.search).get('folders');
-  const filterFolders = urlFolders ? new Set(urlFolders.split(',').map(decodeURIComponent)) : null;
+  const filterParam = new URLSearchParams(window.location.search).get('f');
 
   async function load() {
     try {
-      const allGroups = await fetch('/api/screenshots').then(r => r.json());
-      groups = filterFolders
-        ? allGroups.filter(g => filterFolders.has(g.folder))
-        : allGroups;
+      const [allGroups, session] = await Promise.all([
+        fetch('/api/screenshots').then(r => r.json()),
+        filterParam ? fetch('/api/session').then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      if (filterParam && session) {
+        const folders = new Set(filterParam === 'failed' ? session.failed : session.all);
+        groups = allGroups.filter(g => folders.has(g.folder));
+      } else {
+        groups = allGroups;
+      }
+
       render(document.getElementById('search-input').value.trim());
-      if (filterFolders) {
+      if (filterParam) {
         for (const el of document.querySelectorAll('.test-group')) {
           el.classList.add('is-open');
         }

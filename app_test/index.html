@@ -385,7 +385,7 @@
 
   // ── Results modal ──
 
-  function showResultsModal(sessionTests, elapsedMs) {
+  async function showResultsModal(sessionTests, elapsedMs) {
     const launched = sessionTests.length;
     const passed   = sessionTests.filter(t => state[t.filename] === 'passed').length;
     const failed   = sessionTests.filter(t => state[t.filename] === 'failed').length;
@@ -397,23 +397,23 @@
 
     const failedTests = sessionTests.filter(t => state[t.filename] === 'failed');
 
+    const toFolder = t => t.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, '');
+    await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        all: sessionTests.map(toFolder),
+        failed: failedTests.map(toFolder),
+      }),
+    }).catch(() => {});
+
     const screenshotsBtn = document.getElementById('results-screenshots-btn');
-    if (failedTests.length > 0) {
-      const folders = failedTests.map(t => t.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, ''));
-      screenshotsBtn.href = '/screenshots?folders=' + folders.map(encodeURIComponent).join(',');
-      screenshotsBtn.style.display = '';
-    } else {
-      screenshotsBtn.style.display = 'none';
-    }
+    screenshotsBtn.href = '/screenshots?f=failed';
+    screenshotsBtn.style.display = failedTests.length > 0 ? '' : 'none';
 
     const allScreenshotsBtn = document.getElementById('results-all-screenshots-btn');
-    if (sessionTests.length > 0) {
-      const allFolders = sessionTests.map(t => t.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, ''));
-      allScreenshotsBtn.href = '/screenshots?folders=' + allFolders.map(encodeURIComponent).join(',');
-      allScreenshotsBtn.style.display = '';
-    } else {
-      allScreenshotsBtn.style.display = 'none';
-    }
+    allScreenshotsBtn.href = '/screenshots?f=all';
+    allScreenshotsBtn.style.display = sessionTests.length > 0 ? '' : 'none';
 
     let failuresHtml = '';
     if (failedTests.length > 0) {
@@ -592,6 +592,7 @@
       fetch('/api/tests').then(r => r.json()),
       fetch('/api/groups').then(r => r.json()),
     ]);
+    //allTests = [...tests];
     allTests = [...tests, ...generateFakeTests(100)];
     allGroups = grps;
 

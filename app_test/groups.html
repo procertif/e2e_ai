@@ -93,6 +93,17 @@
   </div>
 </div>
 
+<!-- ── Group Picker Modal ── -->
+<div id="group-picker-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog group-picker-dialog">
+    <div class="results-dialog-header">
+      <h2 class="results-title">Assigner à un groupe</h2>
+      <button class="results-close-btn" id="group-picker-close">×</button>
+    </div>
+    <div class="results-dialog-body group-picker-body" id="group-picker-list"></div>
+  </div>
+</div>
+
 <!-- ── Delete Confirmation Modal ── -->
 <div id="delete-confirm-modal" class="results-overlay" style="display:none">
   <div class="results-dialog" style="max-width:420px;">
@@ -226,11 +237,7 @@
     list.innerHTML = filtered.map(t => {
       const grp = getTestGroup(t.filename);
       const grpIdx = grp ? groups.findIndex(g => g.id === grp.id) : -1;
-
-      const selectOptions = [
-        `<option value="">— Non assigné —</option>`,
-        ...groups.map((g, i) => `<option value="${escHtml(g.id)}"${grp && grp.id === g.id ? ' selected' : ''}>${escHtml(g.name)}</option>`)
-      ].join('');
+      const col = grp ? groupColor(grpIdx) : null;
 
       return `
         <div class="avail-item" data-filename="${escHtml(t.filename)}">
@@ -238,17 +245,71 @@
             <p class="test-name">${escHtml(t.name)}</p>
             <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
           </div>
-          <select class="group-select${grp ? ' has-group' : ''}" data-filename="${escHtml(t.filename)}"
-            style="${grp ? `background-color:${groupColor(grpIdx).bg};color:${groupColor(grpIdx).text};border-color:${groupColor(grpIdx).border};` : ''}">
-            ${selectOptions}
-          </select>
+          <button class="group-assign-btn${grp ? ' has-group' : ''}" data-filename="${escHtml(t.filename)}"
+            style="${col ? `background-color:${col.bg};color:${col.text};border-color:${col.border};` : ''}">
+            ${grp ? escHtml(grp.name) : '— Assigner —'}
+          </button>
         </div>`;
     }).join('');
 
-    for (const sel of list.querySelectorAll('.group-select')) {
-      sel.addEventListener('change', (e) => assignTest(sel.dataset.filename, e.target.value || null));
+    for (const btn of list.querySelectorAll('.group-assign-btn')) {
+      btn.addEventListener('click', () => openGroupPicker(btn.dataset.filename));
     }
   }
+
+  // ── Group picker modal ──
+
+  let pickerFilename = null;
+
+  function openGroupPicker(filename) {
+    pickerFilename = filename;
+    const grp = getTestGroup(filename);
+
+    const list = document.getElementById('group-picker-list');
+    const noneSelected = !grp;
+    list.innerHTML = [
+      `<button class="group-picker-item${noneSelected ? ' is-selected' : ''}" data-group-id="">
+        <span class="group-picker-none">— Non assigné —</span>
+        ${noneSelected ? '<span class="group-picker-check">✓</span>' : ''}
+      </button>`,
+      ...groups.map((g, i) => {
+        const col = groupColor(i);
+        const selected = grp && grp.id === g.id;
+        return `<button class="group-picker-item${selected ? ' is-selected' : ''}" data-group-id="${escHtml(g.id)}"
+          style="${selected ? `background:${col.bg};` : ''}">
+          <span class="group-picker-dot" style="background:${col.text};"></span>
+          <span class="group-picker-name" style="${selected ? `color:${col.text};font-weight:600;` : ''}">${escHtml(g.name)}</span>
+          <span class="group-picker-count">${g.tests.length} test${g.tests.length !== 1 ? 's' : ''}</span>
+          ${selected ? '<span class="group-picker-check">✓</span>' : ''}
+        </button>`;
+      })
+    ].join('');
+
+    for (const btn of list.querySelectorAll('.group-picker-item')) {
+      btn.addEventListener('click', () => {
+        const groupId = btn.dataset.groupId || null;
+        const filename = pickerFilename;
+        closeGroupPicker();
+        assignTest(filename, groupId);
+      });
+    }
+
+    document.getElementById('group-picker-modal').style.display = 'flex';
+  }
+
+  function closeGroupPicker() {
+    document.getElementById('group-picker-modal').style.display = 'none';
+    pickerFilename = null;
+  }
+
+  document.getElementById('group-picker-close').addEventListener('click', closeGroupPicker);
+  document.getElementById('group-picker-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('group-picker-modal')) closeGroupPicker();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('group-picker-modal').style.display === 'none') return;
+    if (e.key === 'Escape') closeGroupPicker();
+  });
 
   // ── Assign test to group ──
 
@@ -353,7 +414,7 @@
         </div>
         <div class="group-card-body">
           ${g.tests.length === 0
-            ? '<p class="group-card-empty-tests">Aucun test assigné — utilisez le menu déroulant à gauche</p>'
+            ? '<p class="group-card-empty-tests">Aucun test assigné — cliquez sur un test à gauche pour l\'assigner</p>'
             : testRows}
         </div>`;
 
@@ -611,6 +672,7 @@
       fetch('/api/tests').then(r => r.json()),
       fetch('/api/groups').then(r => r.json()),
     ]);
+    //allTests = [...tests];
     allTests = [...tests, ...generateFakeTests(100)];
     groups = grps;
     renderAll();

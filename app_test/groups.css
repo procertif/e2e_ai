@@ -231,30 +231,106 @@
   background: #f8f9fa;
 }
 
-/* Group assignment select (left panel) */
+/* Group assignment button (left panel) */
 
-.group-select {
+.group-assign-btn {
   font-size: 0.775rem;
   font-family: inherit;
-  padding: 0.22rem 0.55rem;
+  padding: 0.22rem 0.65rem;
   border: 1px solid #dee2e6;
   border-radius: 20px;
   background: #f8f9fa;
   color: #6c757d;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   max-width: 140px;
   flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.group-select:focus {
+.group-assign-btn:hover {
   border-color: #86b7fe;
-  outline: none;
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
 }
 
-.group-select.has-group {
+.group-assign-btn.has-group {
   font-weight: 600;
+}
+
+/* ── Group picker modal ── */
+
+.group-picker-dialog {
+  max-width: 340px;
+  padding: 0;
+}
+
+.group-picker-body {
+  padding: 0.5rem 0 !important;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.group-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 1.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #212529;
+  transition: background 0.1s;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.group-picker-item:last-child {
+  border-bottom: none;
+}
+
+.group-picker-item:hover {
+  background: #f8f9fa;
+}
+
+.group-picker-item.is-selected {
+  font-weight: 600;
+}
+
+.group-picker-none {
+  flex: 1;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.group-picker-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-picker-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-picker-count {
+  font-size: 0.75rem;
+  color: #adb5bd;
+  flex-shrink: 0;
+}
+
+.group-picker-check {
+  font-size: 0.8rem;
+  color: #0d6efd;
+  flex-shrink: 0;
 }
 
 /* ── Shared: tabs & queue-group items (used in index.html too) ── */
