@@ -6,8 +6,5 @@
     "cas4-quiz-noai",
     "cas1-jury-noai"
   ],
-  "failed": [
-    "cas3-quiz-noai",
-    "cas1-jury-noai"
-  ]
+  "failed": []
 }
