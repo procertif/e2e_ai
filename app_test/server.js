@@ -7,6 +7,7 @@ const PORT = 3333;
 const E2E_DIR = path.resolve(__dirname, "..");
 const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
+const GROUPS_FILE = path.join(__dirname, "groups.json");
 
 function parseEnvFile(filePath) {
 	try {
@@ -101,6 +102,30 @@ function listScreenshots() {
 	return groups;
 }
 
+function loadGroups() {
+	try {
+		return JSON.parse(fs.readFileSync(GROUPS_FILE, "utf-8"));
+	} catch {
+		return [];
+	}
+}
+
+function saveGroups(data) {
+	fs.writeFileSync(GROUPS_FILE, JSON.stringify(data, null, 2));
+}
+
+function readBody(req) {
+	return new Promise((resolve, reject) => {
+		let body = "";
+		req.on("data", (chunk) => (body += chunk));
+		req.on("end", () => {
+			try { resolve(body ? JSON.parse(body) : {}); }
+			catch { reject(new Error("Invalid JSON")); }
+		});
+		req.on("error", reject);
+	});
+}
+
 function startRun(filename) {
 	const runId =
 		Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -142,11 +167,12 @@ function startRun(filename) {
 }
 
 http
-	.createServer((req, res) => {
+	.createServer(async (req, res) => {
 		const { pathname } = new URL(req.url, `http://localhost:${PORT}`);
 
 		res.setHeader("Access-Control-Allow-Origin", "*");
-		res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+		res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+		res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
 		if (req.method === "OPTIONS") {
 			res.writeHead(204);
@@ -192,6 +218,18 @@ http
 			return;
 		}
 
+		if (req.method === "GET" && pathname === "/groups") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "groups.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/groups.css") {
+			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "groups.css")));
+			return;
+		}
+
 		if (req.method === "GET" && pathname === "/api/screenshots") {
 			const screenshots = listScreenshots();
 			res.writeHead(200, { "Content-Type": "application/json" });
@@ -216,6 +254,71 @@ http
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify(listTests()));
 			return;
+		}
+
+		if (req.method === "GET" && pathname === "/api/groups") {
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(loadGroups()));
+			return;
+		}
+
+		if (req.method === "POST" && pathname === "/api/groups") {
+			try {
+				const body = await readBody(req);
+				const name = (body.name || "").trim();
+				if (!name) { res.writeHead(400); res.end("Name required"); return; }
+				const grps = loadGroups();
+				const newGroup = {
+					id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+					name,
+					tests: [],
+				};
+				grps.push(newGroup);
+				saveGroups(grps);
+				res.writeHead(201, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(newGroup));
+			} catch {
+				res.writeHead(400);
+				res.end("Bad request");
+			}
+			return;
+		}
+
+		const groupIdMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
+		if (groupIdMatch) {
+			const id = decodeURIComponent(groupIdMatch[1]);
+			if (req.method === "PUT") {
+				try {
+					const body = await readBody(req);
+					const grps = loadGroups();
+					const grp = grps.find((g) => g.id === id);
+					if (!grp) { res.writeHead(404); res.end("Not found"); return; }
+					if (body.name !== undefined) grp.name = String(body.name).trim();
+					if (Array.isArray(body.tests)) {
+						for (const g of grps) {
+							if (g.id !== id) g.tests = g.tests.filter((t) => !body.tests.includes(t));
+						}
+						grp.tests = body.tests;
+					}
+					saveGroups(grps);
+					res.writeHead(200, { "Content-Type": "application/json" });
+					res.end(JSON.stringify(grp));
+				} catch {
+					res.writeHead(400);
+					res.end("Bad request");
+				}
+				return;
+			}
+			if (req.method === "DELETE") {
+				const grps = loadGroups();
+				const idx = grps.findIndex((g) => g.id === id);
+				if (idx === -1) { res.writeHead(404); res.end("Not found"); return; }
+				grps.splice(idx, 1);
+				saveGroups(grps);
+				res.writeHead(204);
+				res.end();
+				return;
+			}
 		}
 
 		const screenshotDeleteMatch = pathname.match(/^\/api\/screenshots\/([^/]+)$/);

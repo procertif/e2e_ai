@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/index.css" />
+  <link rel="stylesheet" href="/groups.css" />
 </head>
 <body>
 
@@ -16,14 +17,27 @@
   <aside class="app-sidebar">
     <div class="sidebar-label">Test Runner E2E</div>
     <hr class="divider" />
-    <a href="/screenshots" class="sidebar-screenshots-link">
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
-        <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
-      </svg>
-      Voir les screenshots
-    </a>
-    <hr class="divider" />
+    <nav class="sidebar-nav">
+      <a href="/" class="sidebar-link sidebar-link--active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1"/>
+        </svg>
+        Tests
+      </a>
+      <a href="/screenshots" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+          <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+        </svg>
+        Screenshots
+      </a>
+      <a href="/groups" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+        </svg>
+        Groupes
+      </a>
+    </nav>
   </aside>
 
   <!-- ── Main ── -->
@@ -41,14 +55,21 @@
               <h2 class="panel-title">Tests disponibles</h2>
               <span class="avail-count" id="avail-count"></span>
             </div>
+            <div class="panel-tabs">
+              <button class="panel-tab active" id="tab-btn-tests">Tests</button>
+              <button class="panel-tab" id="tab-btn-groups">Groupes</button>
+            </div>
             <div class="panel-search-wrap">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
               </svg>
-              <input type="text" id="search-available" class="panel-search-input" placeholder="Rechercher un test…" />
+              <input type="text" id="search-available" class="panel-search-input" placeholder="Rechercher…" />
             </div>
           </div>
-          <div class="panel-body" id="available-list"></div>
+          <div class="panel-body" id="avail-panel-body">
+            <div id="available-list"></div>
+            <div id="groups-for-queue" style="display:none;"></div>
+          </div>
         </div>
 
         <!-- Right: Execution queue -->
@@ -92,10 +113,27 @@
 </div>
 
 <script>
+  const GROUP_COLORS = [
+    { bg: '#dbeafe', text: '#1d4ed8' },
+    { bg: '#dcfce7', text: '#15803d' },
+    { bg: '#fef3c7', text: '#b45309' },
+    { bg: '#fce7f3', text: '#be185d' },
+    { bg: '#e0e7ff', text: '#4338ca' },
+    { bg: '#ffedd5', text: '#c2410c' },
+    { bg: '#f0fdfa', text: '#0f766e' },
+    { bg: '#fdf4ff', text: '#7e22ce' },
+  ];
+
   const state = {};
   let allTests = [];
+  let allGroups = [];
+  let activeTab = 'tests';
   const queue = [];
   const queueSet = new Set();
+
+  function escHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
   function stripAnsi(str) {
     return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
@@ -124,7 +162,7 @@
         });
 
     document.getElementById('avail-count').textContent =
-      filtered.length !== allTests.length ? `${filtered.length}/${allTests.length}` : `${allTests.length}`;
+      filtered.length !== allTests.length ? `${filtered.length}/${allTests.length} tests` : `${allTests.length} tests`;
 
     list.innerHTML = filtered.map(t => {
       const isQueued = queueSet.has(t.filename);
@@ -134,17 +172,21 @@
             <p class="test-name">${t.name}</p>
             <span class="badge-type ${badgeClass(t.type)}">${t.typeLabel}</span>
           </div>
-          <button class="btn-add-queue" data-filename="${t.filename}" ${isQueued ? 'disabled title="Déjà dans la file"' : 'title="Ajouter à la file"'}>
-            ${isQueued ? '✓' : '+'}
-          </button>
+          ${isQueued
+            ? `<button class="btn-remove-avail" data-filename="${t.filename}" title="Retirer de la file">×</button>`
+            : `<button class="btn-add-queue" data-filename="${t.filename}" title="Ajouter à la file">+</button>`
+          }
         </div>`;
     }).join('');
 
-    for (const btn of list.querySelectorAll('.btn-add-queue:not([disabled])')) {
+    for (const btn of list.querySelectorAll('.btn-add-queue')) {
       btn.addEventListener('click', () => {
         const test = allTests.find(t => t.filename === btn.dataset.filename);
         if (test) addToQueue(test);
       });
+    }
+    for (const btn of list.querySelectorAll('.btn-remove-avail')) {
+      btn.addEventListener('click', () => removeFromQueue(btn.dataset.filename));
     }
   }
 
@@ -159,7 +201,8 @@
     document.getElementById('queue-empty').style.display = 'none';
     document.getElementById('queue-list').appendChild(buildQueueCard(test));
     updateQueueCount();
-    renderAvailable(document.getElementById('search-available').value.trim());
+    persistQueue();
+    renderActiveTab();
   }
 
   function removeFromQueue(filename) {
@@ -177,7 +220,8 @@
       document.getElementById('queue-empty').style.display = '';
     }
     updateQueueCount();
-    renderAvailable(document.getElementById('search-available').value.trim());
+    persistQueue();
+    renderActiveTab();
   }
 
   function updateQueueCount() {
@@ -186,12 +230,23 @@
       n === 0 ? '0 test' : `${n} test${n > 1 ? 's' : ''}`;
   }
 
+  function renderActiveTab() {
+    const q = document.getElementById('search-available').value.trim();
+    if (activeTab === 'groups') renderGroupsForQueue(q);
+    else renderAvailable(q);
+  }
+
+  function persistQueue() {
+    localStorage.setItem('e2e_queue', JSON.stringify(queue.map(t => t.filename)));
+  }
+
   function syncQueueOrder() {
     const list = document.getElementById('queue-list');
     const cards = [...list.querySelectorAll('.test-card[data-filename]')];
     const newOrder = cards.map(c => queue.find(t => t.filename === c.dataset.filename)).filter(Boolean);
     queue.length = 0;
     queue.push(...newOrder);
+    persistQueue();
   }
 
   function buildQueueCard(test) {
@@ -428,6 +483,87 @@
     });
   }
 
+  // ── Groups tab ──
+
+  function renderGroupsForQueue(query) {
+    const list = document.getElementById('groups-for-queue');
+    const q = query.toLowerCase().trim();
+    const filtered = q
+      ? allGroups.filter(g => g.name.toLowerCase().includes(q))
+      : allGroups;
+
+    const n = allGroups.length;
+    document.getElementById('avail-count').textContent =
+      filtered.length !== n ? `${filtered.length}/${n} groupes` : `${n} groupe${n !== 1 ? 's' : ''}`;
+
+    if (allGroups.length === 0) {
+      list.innerHTML = `
+        <div class="groups-tab-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16" style="opacity:0.25;">
+            <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+          </svg>
+          <p>Aucun groupe créé.</p>
+          <a href="/groups">Gérer les groupes</a>
+        </div>`;
+      return;
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="groups-tab-empty"><p>Aucun groupe correspondant.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map((g, i) => {
+      const realIdx = allGroups.indexOf(g);
+      const col = GROUP_COLORS[realIdx % GROUP_COLORS.length];
+      const knownTests = g.tests.filter(fn => allTests.some(t => t.filename === fn));
+      const alreadyQueued = knownTests.filter(fn => queueSet.has(fn)).length;
+      const addable = knownTests.length - alreadyQueued;
+      return `
+        <div class="group-queue-item">
+          <div class="group-queue-info">
+            <span class="group-queue-dot" style="background:${col.text};"></span>
+            <div class="group-queue-text">
+              <p class="group-queue-name">${escHtml(g.name)}</p>
+              <span class="group-queue-meta">${knownTests.length} test${knownTests.length !== 1 ? 's' : ''}${alreadyQueued > 0 ? ` · ${alreadyQueued} déjà en file` : ''}</span>
+            </div>
+          </div>
+          <button class="btn-add-group-queue" data-group-id="${escHtml(g.id)}" ${addable === 0 ? 'disabled style="opacity:0.4;cursor:default;"' : ''}>
+            ${addable === 0 ? 'Tout ajouté' : 'Ajouter tout'}
+          </button>
+        </div>`;
+    }).join('');
+
+    for (const btn of list.querySelectorAll('.btn-add-group-queue:not([disabled])')) {
+      btn.addEventListener('click', () => addGroupToQueue(btn.dataset.groupId));
+    }
+  }
+
+  function addGroupToQueue(groupId) {
+    const group = allGroups.find(g => g.id === groupId);
+    if (!group) return;
+    for (const fn of group.tests) {
+      const test = allTests.find(t => t.filename === fn);
+      if (test && !queueSet.has(fn)) addToQueue(test);
+    }
+    renderGroupsForQueue(document.getElementById('search-available').value.trim());
+  }
+
+  async function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-btn-tests').classList.toggle('active', tab === 'tests');
+    document.getElementById('tab-btn-groups').classList.toggle('active', tab === 'groups');
+    document.getElementById('available-list').style.display = tab === 'tests' ? '' : 'none';
+    document.getElementById('groups-for-queue').style.display = tab === 'groups' ? '' : 'none';
+    const q = document.getElementById('search-available').value.trim();
+    if (tab === 'groups') {
+      allGroups = await fetch('/api/groups').then(r => r.json());
+      renderGroupsForQueue(q);
+    } else {
+      renderAvailable(q);
+    }
+  }
+
   // ── Fake tests for layout preview ──
 
   function generateFakeTests(count) {
@@ -452,13 +588,28 @@
   // ── Init ──
 
   async function init() {
-    const tests = await fetch('/api/tests').then((r) => r.json());
+    const [tests, grps] = await Promise.all([
+      fetch('/api/tests').then(r => r.json()),
+      fetch('/api/groups').then(r => r.json()),
+    ]);
     allTests = [...tests, ...generateFakeTests(100)];
+    allGroups = grps;
+
+    const savedQueue = JSON.parse(localStorage.getItem('e2e_queue') || '[]');
+    for (const filename of savedQueue) {
+      const test = allTests.find(t => t.filename === filename);
+      if (test) addToQueue(test);
+    }
 
     renderAvailable('');
 
+    document.getElementById('tab-btn-tests').addEventListener('click', () => switchTab('tests'));
+    document.getElementById('tab-btn-groups').addEventListener('click', () => switchTab('groups'));
+
     document.getElementById('search-available').addEventListener('input', (e) => {
-      renderAvailable(e.target.value.trim());
+      const q = e.target.value.trim();
+      if (activeTab === 'tests') renderAvailable(q);
+      else renderGroupsForQueue(q);
     });
 
     makeDraggable(document.getElementById('queue-list'));

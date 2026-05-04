@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procertif — Groupes de tests</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/index.css" />
+  <link rel="stylesheet" href="/groups.css" />
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar-label">Test Runner E2E</div>
+    <hr class="divider" />
+    <nav class="sidebar-nav">
+      <a href="/" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1"/>
+        </svg>
+        Tests
+      </a>
+      <a href="/screenshots" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+          <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+        </svg>
+        Screenshots
+      </a>
+      <a href="/groups" class="sidebar-link sidebar-link--active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+        </svg>
+        Groupes
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="app-main">
+
+    <div class="app-topbar">
+      <h1>Groupes de tests</h1>
+      <span class="badge-env">GROUPES</span>
+    </div>
+
+    <div class="app-content">
+      <div class="panels-layout">
+
+        <!-- Left: Tests with group assignment -->
+        <div class="panel panel-available">
+          <div class="panel-header">
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="panel-title">Tests disponibles</h2>
+              <span class="avail-count" id="avail-count"></span>
+            </div>
+            <div class="panel-search-wrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+              </svg>
+              <input type="text" id="search-tests" class="panel-search-input" placeholder="Rechercher un test…" />
+            </div>
+          </div>
+          <div class="panel-body" id="tests-list"></div>
+        </div>
+
+        <!-- Right: Groups management -->
+        <div class="panel panel-groups">
+          <div class="panel-header panel-header-row">
+            <div class="d-flex align-items-center gap-3">
+              <h2 class="panel-title">Groupes</h2>
+              <button class="btn btn-primary btn-sm btn-run-all" id="btn-new-group">+ Nouveau</button>
+            </div>
+            <span class="queue-count" id="groups-count">0 groupe</span>
+          </div>
+          <div class="panel-body" id="groups-list">
+            <div class="queue-empty" id="groups-empty">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style="opacity:0.25;">
+                <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+                <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5z"/>
+              </svg>
+              <p>Créez votre premier groupe</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Confirmation Modal ── -->
+<div id="delete-confirm-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog" style="max-width:420px;">
+    <div class="results-dialog-header">
+      <h2 class="results-title">Supprimer le groupe</h2>
+      <button class="results-close-btn" id="delete-modal-close">×</button>
+    </div>
+    <div class="results-dialog-body" style="padding:1.25rem 1.5rem;">
+      <div class="delete-confirm-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+        </svg>
+      </div>
+      <p class="delete-confirm-message" id="delete-confirm-message"></p>
+      <p class="delete-confirm-sub" id="delete-confirm-sub" style="display:none;"></p>
+    </div>
+    <div class="results-dialog-footer">
+      <button class="btn btn-outline-secondary btn-sm" id="delete-modal-cancel">Annuler</button>
+      <button class="btn btn-danger btn-sm" id="delete-modal-confirm">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Manage Tests Modal ── -->
+<div id="manage-tests-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog manage-tests-dialog">
+    <div class="results-dialog-header">
+      <h2 class="results-title" id="manage-tests-title">Gérer les tests</h2>
+      <button class="results-close-btn" id="manage-tests-close">×</button>
+    </div>
+    <div class="manage-tests-search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+      </svg>
+      <input type="text" id="manage-tests-search" class="panel-search-input" placeholder="Rechercher un test…" />
+    </div>
+    <div class="results-dialog-body manage-tests-body" id="manage-tests-list"></div>
+    <div class="results-dialog-footer manage-tests-footer">
+      <span class="manage-tests-selected" id="manage-tests-selected"></span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="manage-tests-cancel">Annuler</button>
+        <button class="btn btn-primary btn-sm" id="manage-tests-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Group Name Modal (create / rename) ── -->
+<div id="group-name-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog" style="max-width:420px;">
+    <div class="results-dialog-header">
+      <h2 class="results-title" id="modal-title">Nouveau groupe</h2>
+      <button class="results-close-btn" id="modal-close">×</button>
+    </div>
+    <div class="results-dialog-body" style="padding:1.25rem 1.5rem;">
+      <label class="form-label small fw-semibold" for="modal-group-name">Nom du groupe</label>
+      <input type="text" class="form-control" id="modal-group-name" placeholder="Ex: Smoke tests, Régression…" />
+    </div>
+    <div class="results-dialog-footer">
+      <button class="btn btn-outline-secondary btn-sm" id="modal-cancel">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="modal-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GROUP_COLORS = [
+    { bg: '#dbeafe', text: '#1d4ed8', border: '#bfdbfe' },
+    { bg: '#dcfce7', text: '#15803d', border: '#bbf7d0' },
+    { bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
+    { bg: '#fce7f3', text: '#be185d', border: '#fbcfe8' },
+    { bg: '#e0e7ff', text: '#4338ca', border: '#c7d2fe' },
+    { bg: '#ffedd5', text: '#c2410c', border: '#fed7aa' },
+    { bg: '#f0fdfa', text: '#0f766e', border: '#99f6e4' },
+    { bg: '#fdf4ff', text: '#7e22ce', border: '#f0abfc' },
+  ];
+
+  function groupColor(idx) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  let allTests = [];
+  let groups = [];
+  let modalMode = 'create';
+  let modalEditId = null;
+  const openGroupIds = new Set();
+
+  function generateFakeTests(count) {
+    const types = ['quiz', 'jury', 'correction', 'validation', 'signature'];
+    return Array.from({ length: count }, (_, i) => {
+      const type = types[i % types.length];
+      const cas = i + 1;
+      return {
+        filename: `99-cas${cas}-${type}-noai.spec.ts`,
+        cas: `cas${cas}`, order: 99, casNum: cas, type,
+        typeLabel: type.charAt(0).toUpperCase() + type.slice(1),
+        mode: 'noai',
+        name: `[FICTIF] Cas ${cas} - ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+        _fake: true,
+      };
+    });
+  }
+
+  function badgeClass(type) {
+    const map = { quiz: 'badge-quiz', jury: 'badge-jury', correction: 'badge-correction', validation: 'badge-validation', signature: 'badge-signature' };
+    return map[type] || 'badge-quiz';
+  }
+
+  function getTestGroup(filename) {
+    return groups.find(g => g.tests.includes(filename)) || null;
+  }
+
+  // ── Render tests list ──
+
+  function renderTests(query) {
+    const list = document.getElementById('tests-list');
+    const q = query.toLowerCase().trim();
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
+      const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+      return tokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
+    });
+
+    document.getElementById('avail-count').textContent =
+      filtered.length !== allTests.length ? `${filtered.length}/${allTests.length}` : `${allTests.length}`;
+
+    list.innerHTML = filtered.map(t => {
+      const grp = getTestGroup(t.filename);
+      const grpIdx = grp ? groups.findIndex(g => g.id === grp.id) : -1;
+
+      const selectOptions = [
+        `<option value="">— Non assigné —</option>`,
+        ...groups.map((g, i) => `<option value="${escHtml(g.id)}"${grp && grp.id === g.id ? ' selected' : ''}>${escHtml(g.name)}</option>`)
+      ].join('');
+
+      return `
+        <div class="avail-item" data-filename="${escHtml(t.filename)}">
+          <div class="avail-item-info">
+            <p class="test-name">${escHtml(t.name)}</p>
+            <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
+          </div>
+          <select class="group-select${grp ? ' has-group' : ''}" data-filename="${escHtml(t.filename)}"
+            style="${grp ? `background-color:${groupColor(grpIdx).bg};color:${groupColor(grpIdx).text};border-color:${groupColor(grpIdx).border};` : ''}">
+            ${selectOptions}
+          </select>
+        </div>`;
+    }).join('');
+
+    for (const sel of list.querySelectorAll('.group-select')) {
+      sel.addEventListener('change', (e) => assignTest(sel.dataset.filename, e.target.value || null));
+    }
+  }
+
+  // ── Assign test to group ──
+
+  async function assignTest(filename, newGroupId) {
+    const currentGroup = getTestGroup(filename);
+    const updates = [];
+
+    if (currentGroup) {
+      updates.push(fetch('/api/groups/' + currentGroup.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tests: currentGroup.tests.filter(t => t !== filename) }),
+      }));
+    }
+
+    if (newGroupId) {
+      const target = groups.find(g => g.id === newGroupId);
+      if (target) {
+        updates.push(fetch('/api/groups/' + newGroupId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tests: [...target.tests.filter(t => t !== filename), filename] }),
+        }));
+      }
+    }
+
+    await Promise.all(updates);
+    groups = await fetch('/api/groups').then(r => r.json());
+    renderAll();
+  }
+
+  // ── Render groups ──
+
+  function renderGroups() {
+    const list = document.getElementById('groups-list');
+    const empty = document.getElementById('groups-empty');
+    const n = groups.length;
+
+    document.getElementById('groups-count').textContent =
+      n === 0 ? '0 groupe' : `${n} groupe${n > 1 ? 's' : ''}`;
+
+    // Remove old cards, keep empty state node
+    list.querySelectorAll('.group-card').forEach(c => c.remove());
+
+    if (n === 0) {
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+
+    groups.forEach((g, idx) => {
+      const col = groupColor(idx);
+      const card = document.createElement('div');
+      card.className = 'group-card';
+      card.dataset.groupId = g.id;
+
+      const testRows = g.tests.map(fn => {
+        const t = allTests.find(x => x.filename === fn);
+        const name = t ? t.name : fn;
+        const type = t ? t.type : '';
+        const typeLabel = t ? t.typeLabel : '';
+        return `
+          <div class="group-test-row">
+            <div class="avail-item-info">
+              <p class="test-name">${escHtml(name)}</p>
+              ${type ? `<span class="badge-type ${badgeClass(type)}">${escHtml(typeLabel)}</span>` : ''}
+            </div>
+            <button class="btn-remove-queue chip-remove" data-filename="${escHtml(fn)}" data-group-id="${escHtml(g.id)}" title="Retirer du groupe">×</button>
+          </div>`;
+      }).join('');
+
+      const isOpen = openGroupIds.has(g.id);
+      if (isOpen) card.classList.add('is-open');
+
+      card.innerHTML = `
+        <div class="group-card-header" style="border-left:3px solid ${col.text};">
+          <div class="group-card-header-toggle" data-group-id="${escHtml(g.id)}">
+            <span class="group-chevron">›</span>
+            <span class="group-color-dot" style="background:${col.text};"></span>
+            <span class="group-card-name">${escHtml(g.name)}</span>
+            <span class="group-card-count" style="background:${col.bg};color:${col.text};">${g.tests.length}</span>
+          </div>
+          <div class="group-card-actions">
+            <button class="btn-group-action btn-group-manage" data-group-id="${escHtml(g.id)}" title="Gérer les tests">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z"/>
+                <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/>
+              </svg>
+            </button>
+            <button class="btn-group-action btn-group-rename" data-group-id="${escHtml(g.id)}" title="Renommer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11z"/>
+              </svg>
+            </button>
+            <button class="btn-group-action btn-group-delete" data-group-id="${escHtml(g.id)}" title="Supprimer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="group-card-body">
+          ${g.tests.length === 0
+            ? '<p class="group-card-empty-tests">Aucun test assigné — utilisez le menu déroulant à gauche</p>'
+            : testRows}
+        </div>`;
+
+      list.appendChild(card);
+    });
+
+    for (const toggle of list.querySelectorAll('.group-card-header-toggle')) {
+      toggle.addEventListener('click', () => {
+        const card = toggle.closest('.group-card');
+        const id = toggle.dataset.groupId;
+        if (card.classList.toggle('is-open')) {
+          openGroupIds.add(id);
+        } else {
+          openGroupIds.delete(id);
+        }
+      });
+    }
+
+    for (const btn of list.querySelectorAll('.btn-group-manage')) {
+      btn.addEventListener('click', () => openManageModal(btn.dataset.groupId));
+    }
+    for (const btn of list.querySelectorAll('.btn-group-rename')) {
+      btn.addEventListener('click', () => openRenameModal(btn.dataset.groupId));
+    }
+    for (const btn of list.querySelectorAll('.btn-group-delete')) {
+      btn.addEventListener('click', () => deleteGroup(btn.dataset.groupId));
+    }
+    for (const btn of list.querySelectorAll('.chip-remove')) {
+      btn.addEventListener('click', async () => {
+        const { filename, groupId } = btn.dataset;
+        const g = groups.find(x => x.id === groupId);
+        if (!g) return;
+        await fetch('/api/groups/' + groupId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tests: g.tests.filter(t => t !== filename) }),
+        });
+        groups = await fetch('/api/groups').then(r => r.json());
+        renderAll();
+      });
+    }
+  }
+
+  function renderAll() {
+    renderTests(document.getElementById('search-tests').value.trim());
+    renderGroups();
+  }
+
+  // ── Modal ──
+
+  function openCreateModal() {
+    modalMode = 'create';
+    modalEditId = null;
+    document.getElementById('modal-title').textContent = 'Nouveau groupe';
+    document.getElementById('modal-group-name').value = '';
+    document.getElementById('group-name-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('modal-group-name').focus(), 50);
+  }
+
+  function openRenameModal(groupId) {
+    const g = groups.find(x => x.id === groupId);
+    if (!g) return;
+    modalMode = 'rename';
+    modalEditId = groupId;
+    document.getElementById('modal-title').textContent = 'Renommer le groupe';
+    document.getElementById('modal-group-name').value = g.name;
+    document.getElementById('group-name-modal').style.display = 'flex';
+    setTimeout(() => {
+      const inp = document.getElementById('modal-group-name');
+      inp.focus(); inp.select();
+    }, 50);
+  }
+
+  function closeModal() {
+    document.getElementById('group-name-modal').style.display = 'none';
+  }
+
+  async function saveModal() {
+    const name = document.getElementById('modal-group-name').value.trim();
+    if (!name) return;
+    if (modalMode === 'create') {
+      await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+    } else {
+      await fetch('/api/groups/' + modalEditId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+    }
+    groups = await fetch('/api/groups').then(r => r.json());
+    closeModal();
+    renderAll();
+  }
+
+  let manageGroupId = null;
+  let manageSelection = new Set();
+
+  function renderManageList(query) {
+    const g = groups.find(x => x.id === manageGroupId);
+    if (!g) return;
+    const q = query.toLowerCase().trim();
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
+      const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+      return tokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
+    });
+
+    const visible = filtered.filter(t =>
+      !groups.some(x => x.id !== manageGroupId && x.tests.includes(t.filename))
+    );
+
+    const list = document.getElementById('manage-tests-list');
+    list.innerHTML = visible.map(t => `
+      <label class="manage-test-row">
+        <input type="checkbox" class="manage-test-checkbox" value="${escHtml(t.filename)}"
+          ${manageSelection.has(t.filename) ? 'checked' : ''} />
+        <div class="avail-item-info" style="flex:1;min-width:0;">
+          <p class="test-name" style="font-size:0.95rem;">${escHtml(t.name)}</p>
+          <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
+        </div>
+      </label>`).join('');
+
+    for (const cb of list.querySelectorAll('.manage-test-checkbox')) {
+      cb.addEventListener('change', () => {
+        if (cb.checked) manageSelection.add(cb.value);
+        else manageSelection.delete(cb.value);
+        updateManageCount();
+      });
+    }
+    updateManageCount();
+  }
+
+  function updateManageCount() {
+    const n = manageSelection.size;
+    document.getElementById('manage-tests-selected').textContent =
+      n === 0 ? 'Aucun test sélectionné' : `${n} test${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}`;
+  }
+
+  function openManageModal(groupId) {
+    manageGroupId = groupId;
+    const g = groups.find(x => x.id === groupId);
+    if (!g) return;
+    manageSelection = new Set(g.tests);
+    const col = groupColor(groups.indexOf(g));
+    document.getElementById('manage-tests-title').innerHTML =
+      `Gérer les tests — <span style="color:${col.text};">${escHtml(g.name)}</span>`;
+    document.getElementById('manage-tests-search').value = '';
+    document.getElementById('manage-tests-modal').style.display = 'flex';
+    renderManageList('');
+    document.getElementById('manage-tests-search').focus();
+  }
+
+  function closeManageModal() {
+    document.getElementById('manage-tests-modal').style.display = 'none';
+    manageGroupId = null;
+    manageSelection = new Set();
+  }
+
+  async function saveManageModal() {
+    await fetch('/api/groups/' + manageGroupId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tests: [...manageSelection] }),
+    });
+    groups = await fetch('/api/groups').then(r => r.json());
+    closeManageModal();
+    renderAll();
+  }
+
+  document.getElementById('manage-tests-close').addEventListener('click', closeManageModal);
+  document.getElementById('manage-tests-cancel').addEventListener('click', closeManageModal);
+  document.getElementById('manage-tests-save').addEventListener('click', saveManageModal);
+  document.getElementById('manage-tests-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('manage-tests-modal')) closeManageModal();
+  });
+  document.getElementById('manage-tests-search').addEventListener('input', (e) => {
+    renderManageList(e.target.value.trim());
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('manage-tests-modal').style.display === 'none') return;
+    if (e.key === 'Escape') closeManageModal();
+  });
+
+  let deleteResolve = null;
+
+  function openDeleteModal(groupId) {
+    const g = groups.find(x => x.id === groupId);
+    if (!g) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      deleteResolve = resolve;
+      document.getElementById('delete-confirm-message').textContent =
+        `Supprimer le groupe « ${g.name} » ?`;
+      const sub = document.getElementById('delete-confirm-sub');
+      if (g.tests.length > 0) {
+        sub.textContent = `Les ${g.tests.length} test${g.tests.length > 1 ? 's' : ''} assigné${g.tests.length > 1 ? 's' : ''} seront désassignés.`;
+        sub.style.display = '';
+      } else {
+        sub.style.display = 'none';
+      }
+      document.getElementById('delete-confirm-modal').style.display = 'flex';
+      document.getElementById('delete-modal-confirm').focus();
+    });
+  }
+
+  function closeDeleteModal(confirmed) {
+    document.getElementById('delete-confirm-modal').style.display = 'none';
+    if (deleteResolve) { deleteResolve(confirmed); deleteResolve = null; }
+  }
+
+  async function deleteGroup(groupId) {
+    const confirmed = await openDeleteModal(groupId);
+    if (!confirmed) return;
+    await fetch('/api/groups/' + groupId, { method: 'DELETE' });
+    groups = await fetch('/api/groups').then(r => r.json());
+    renderAll();
+  }
+
+  // ── Events ──
+
+  document.getElementById('delete-modal-close').addEventListener('click', () => closeDeleteModal(false));
+  document.getElementById('delete-modal-cancel').addEventListener('click', () => closeDeleteModal(false));
+  document.getElementById('delete-modal-confirm').addEventListener('click', () => closeDeleteModal(true));
+  document.getElementById('delete-confirm-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('delete-confirm-modal')) closeDeleteModal(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('delete-confirm-modal').style.display === 'none') return;
+    if (e.key === 'Escape') closeDeleteModal(false);
+    if (e.key === 'Enter') closeDeleteModal(true);
+  });
+
+  document.getElementById('btn-new-group').addEventListener('click', openCreateModal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-save').addEventListener('click', saveModal);
+  document.getElementById('group-name-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('group-name-modal')) closeModal();
+  });
+  document.getElementById('modal-group-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveModal();
+    if (e.key === 'Escape') closeModal();
+  });
+  document.getElementById('search-tests').addEventListener('input', (e) => {
+    renderTests(e.target.value.trim());
+  });
+
+  // ── Init ──
+
+  async function init() {
+    const [tests, grps] = await Promise.all([
+      fetch('/api/tests').then(r => r.json()),
+      fetch('/api/groups').then(r => r.json()),
+    ]);
+    allTests = [...tests, ...generateFakeTests(100)];
+    groups = grps;
+    renderAll();
+  }
+
+  init();
+</script>
+</body>
+</html>

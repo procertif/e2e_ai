@@ -1,0 +1,22 @@
+[
+  {
+    "id": "mor7jddcfiie1",
+    "name": "quiz + jury",
+    "tests": [
+      "1-cas1-quiz-noai.spec.ts",
+      "1-cas2-quiz-noai.spec.ts",
+      "1-cas3-quiz-noai.spec.ts",
+      "1-cas4-quiz-noai.spec.ts",
+      "2-cas1-jury-noai.spec.ts"
+    ]
+  },
+  {
+    "id": "mor9povl5rnmx",
+    "name": "signature",
+    "tests": [
+      "99-cas2-jury-noai.spec.ts",
+      "99-cas5-signature-noai.spec.ts",
+      "99-cas10-signature-noai.spec.ts"
+    ]
+  }
+]
