@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procertif — Test Runner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/index.css" />
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar-label">Test Runner E2E</div>
+    <hr class="divider" />
+    <a href="/screenshots" class="sidebar-screenshots-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+        <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+      </svg>
+      Voir les screenshots
+    </a>
+    <hr class="divider" />
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="app-main">
+
+    <!-- Topbar -->
+    <!-- Two-panel content -->
+    <div class="app-content">
+      <div class="panels-layout">
+
+        <!-- Left: Available tests -->
+        <div class="panel panel-available">
+          <div class="panel-header">
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="panel-title">Tests disponibles</h2>
+              <span class="avail-count" id="avail-count"></span>
+            </div>
+            <div class="panel-search-wrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+              </svg>
+              <input type="text" id="search-available" class="panel-search-input" placeholder="Rechercher un test…" />
+            </div>
+          </div>
+          <div class="panel-body" id="available-list"></div>
+        </div>
+
+        <!-- Right: Execution queue -->
+        <div class="panel panel-queue">
+          <div class="panel-header panel-header-row">
+            <div class="d-flex align-items-center gap-3">
+              <h2 class="panel-title">File d'exécution</h2>
+              <button class="btn btn-primary btn-sm btn-run-all" id="btn-run-queue">Lancer la file</button>
+            </div>
+            <span class="queue-count" id="queue-count">0 test</span>
+          </div>
+          <div class="panel-body" id="queue-list">
+            <div class="queue-empty" id="queue-empty">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style="opacity:0.25;">
+                <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1"/>
+              </svg>
+              <p>Ajoutez des tests depuis la liste</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Results Modal ── -->
+<div id="results-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog">
+    <div class="results-dialog-header">
+      <h2 class="results-title">Résultats de la session</h2>
+      <button class="results-close-btn" id="results-close" aria-label="Fermer">×</button>
+    </div>
+    <div class="results-dialog-body" id="results-body"></div>
+    <div class="results-dialog-footer">
+      <a class="btn btn-outline-secondary btn-sm" id="results-all-screenshots-btn" href="#" style="display:none;" target="_blank">Voir tous les screenshots</a>
+      <a class="btn btn-outline-danger btn-sm" id="results-screenshots-btn" href="#" style="display:none;" target="_blank">Voir les screenshots des échecs</a>
+      <button class="btn btn-primary btn-sm" id="results-close-btn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const state = {};
+  let allTests = [];
+  const queue = [];
+  const queueSet = new Set();
+
+  function stripAnsi(str) {
+    return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+  }
+
+  function cardId(filename) {
+    return 'card-' + filename.replace(/[^a-zA-Z0-9]/g, '-');
+  }
+
+  function badgeClass(type) {
+    const map = { quiz: 'badge-quiz', jury: 'badge-jury', correction: 'badge-correction', validation: 'badge-validation', signature: 'badge-signature' };
+    return map[type] || 'badge-quiz';
+  }
+
+  // ── Available panel ──
+
+  function renderAvailable(query) {
+    const list = document.getElementById('available-list');
+    const q = query.toLowerCase().trim();
+    const queryTokens = q.split(/\s+/).filter(Boolean);
+    const filtered = queryTokens.length === 0
+      ? allTests
+      : allTests.filter(t => {
+          const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+          return queryTokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
+        });
+
+    document.getElementById('avail-count').textContent =
+      filtered.length !== allTests.length ? `${filtered.length}/${allTests.length}` : `${allTests.length}`;
+
+    list.innerHTML = filtered.map(t => {
+      const isQueued = queueSet.has(t.filename);
+      return `
+        <div class="avail-item${isQueued ? ' is-queued' : ''}" data-filename="${t.filename}">
+          <div class="avail-item-info">
+            <p class="test-name">${t.name}</p>
+            <span class="badge-type ${badgeClass(t.type)}">${t.typeLabel}</span>
+          </div>
+          <button class="btn-add-queue" data-filename="${t.filename}" ${isQueued ? 'disabled title="Déjà dans la file"' : 'title="Ajouter à la file"'}>
+            ${isQueued ? '✓' : '+'}
+          </button>
+        </div>`;
+    }).join('');
+
+    for (const btn of list.querySelectorAll('.btn-add-queue:not([disabled])')) {
+      btn.addEventListener('click', () => {
+        const test = allTests.find(t => t.filename === btn.dataset.filename);
+        if (test) addToQueue(test);
+      });
+    }
+  }
+
+  // ── Queue panel ──
+
+  function addToQueue(test) {
+    if (queueSet.has(test.filename)) return;
+    queue.push(test);
+    queueSet.add(test.filename);
+    state[test.filename] = 'idle';
+
+    document.getElementById('queue-empty').style.display = 'none';
+    document.getElementById('queue-list').appendChild(buildQueueCard(test));
+    updateQueueCount();
+    renderAvailable(document.getElementById('search-available').value.trim());
+  }
+
+  function removeFromQueue(filename) {
+    if (state[filename] === 'running') return;
+    const idx = queue.findIndex(t => t.filename === filename);
+    if (idx === -1) return;
+    queue.splice(idx, 1);
+    queueSet.delete(filename);
+    delete state[filename];
+
+    const card = document.getElementById(cardId(filename));
+    if (card) card.remove();
+
+    if (queue.length === 0) {
+      document.getElementById('queue-empty').style.display = '';
+    }
+    updateQueueCount();
+    renderAvailable(document.getElementById('search-available').value.trim());
+  }
+
+  function updateQueueCount() {
+    const n = queue.length;
+    document.getElementById('queue-count').textContent =
+      n === 0 ? '0 test' : `${n} test${n > 1 ? 's' : ''}`;
+  }
+
+  function syncQueueOrder() {
+    const list = document.getElementById('queue-list');
+    const cards = [...list.querySelectorAll('.test-card[data-filename]')];
+    const newOrder = cards.map(c => queue.find(t => t.filename === c.dataset.filename)).filter(Boolean);
+    queue.length = 0;
+    queue.push(...newOrder);
+  }
+
+  function buildQueueCard(test) {
+    const card = document.createElement('div');
+    card.className = 'test-card';
+    card.id = cardId(test.filename);
+    card.dataset.filename = test.filename;
+    card.draggable = true;
+
+    card.innerHTML = `
+      <div class="test-card-body">
+        <div class="test-card-top">
+          <div class="d-flex align-items-center gap-3">
+            <span class="drag-handle" title="Glisser pour réordonner">⠿</span>
+            <div>
+              <p class="test-name">${test.name}</p>
+              <div class="test-badges">
+                <span class="badge-type ${badgeClass(test.type)}">${test.typeLabel}</span>
+              </div>
+            </div>
+          </div>
+          <div class="test-actions">
+            <span class="status-pill status-idle" style="display:none;">Prêt</span>
+            <button class="btn btn-primary btn-sm btn-run">Lancer</button>
+            <button class="btn-remove-queue" title="Retirer de la file">×</button>
+          </div>
+        </div>
+      </div>
+      <div class="output-area">
+        <pre class="output-pre"></pre>
+      </div>
+    `;
+
+    card.querySelector('.btn-run').addEventListener('click', () => runTest(test));
+    card.querySelector('.btn-remove-queue').addEventListener('click', () => removeFromQueue(test.filename));
+
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => card.classList.add('is-dragging'), 0);
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      syncQueueOrder();
+    });
+
+    return card;
+  }
+
+  // ── Card status / output ──
+
+  function setCardStatus(filename, status) {
+    const card = document.getElementById(cardId(filename));
+    if (!card) return;
+
+    card.className = 'test-card' + (status !== 'idle' ? ' is-' + status : '');
+    card.draggable = true;
+
+    const pill = card.querySelector('.status-pill');
+    const btn  = card.querySelector('.btn-run');
+
+    pill.className = 'status-pill status-' + status;
+    const labels = { idle: 'Prêt', running: 'En cours…', passed: 'Réussi ✓', failed: 'Échoué ✗' };
+    pill.textContent = labels[status] || status;
+    pill.style.display = status === 'idle' ? 'none' : '';
+
+    if (status === 'running') {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-xs" role="status"></span>';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Lancer';
+    }
+  }
+
+  function appendOutput(filename, text) {
+    const card = document.getElementById(cardId(filename));
+    if (!card) return;
+    const area = card.querySelector('.output-area');
+    const pre  = card.querySelector('.output-pre');
+    area.classList.add('visible');
+    pre.textContent += stripAnsi(text);
+    pre.scrollTop = pre.scrollHeight;
+  }
+
+  function clearOutput(filename) {
+    const card = document.getElementById(cardId(filename));
+    if (!card) return;
+    const pre = card.querySelector('.output-pre');
+    pre.textContent = '';
+  }
+
+  // ── Run logic ──
+
+  function runTest(test) {
+    if (state[test.filename] === 'running') return Promise.resolve();
+    state[test.filename] = 'running';
+    clearOutput(test.filename);
+    setCardStatus(test.filename, 'running');
+
+    return new Promise(async (resolve) => {
+      const folder = test.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, '');
+      await fetch('/api/screenshots/' + encodeURIComponent(folder), { method: 'DELETE' }).catch(() => {});
+
+      let runId;
+      try {
+        const res = await fetch('/api/run/' + encodeURIComponent(test.filename), { method: 'POST' });
+        const data = await res.json();
+        runId = data.runId;
+      } catch (e) {
+        appendOutput(test.filename, 'Erreur: impossible de lancer le test.\n');
+        state[test.filename] = 'failed';
+        setCardStatus(test.filename, 'failed');
+        resolve();
+        return;
+      }
+
+      const es = new EventSource('/api/stream/' + runId);
+      es.onmessage = (evt) => {
+        const msg = JSON.parse(evt.data);
+        if (msg.text) appendOutput(test.filename, msg.text);
+        if (msg.done) {
+          state[test.filename] = msg.status;
+          setCardStatus(test.filename, msg.status);
+          es.close();
+          resolve();
+        }
+      };
+      es.onerror = () => {
+        state[test.filename] = 'failed';
+        setCardStatus(test.filename, 'failed');
+        es.close();
+        resolve();
+      };
+    });
+  }
+
+  // ── Results modal ──
+
+  function showResultsModal(sessionTests, elapsedMs) {
+    const launched = sessionTests.length;
+    const passed   = sessionTests.filter(t => state[t.filename] === 'passed').length;
+    const failed   = sessionTests.filter(t => state[t.filename] === 'failed').length;
+
+    const totalSec = elapsedMs / 1000;
+    const minutes  = Math.floor(totalSec / 60);
+    const secs     = (totalSec % 60).toFixed(0).padStart(2, '0');
+    const timeStr  = minutes > 0 ? `${minutes}m ${secs}s` : `${totalSec.toFixed(1)}s`;
+
+    const failedTests = sessionTests.filter(t => state[t.filename] === 'failed');
+
+    const screenshotsBtn = document.getElementById('results-screenshots-btn');
+    if (failedTests.length > 0) {
+      const folders = failedTests.map(t => t.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, ''));
+      screenshotsBtn.href = '/screenshots?folders=' + folders.map(encodeURIComponent).join(',');
+      screenshotsBtn.style.display = '';
+    } else {
+      screenshotsBtn.style.display = 'none';
+    }
+
+    const allScreenshotsBtn = document.getElementById('results-all-screenshots-btn');
+    if (sessionTests.length > 0) {
+      const allFolders = sessionTests.map(t => t.filename.replace(/^\d+-/, '').replace(/\.spec\.ts$/, ''));
+      allScreenshotsBtn.href = '/screenshots?folders=' + allFolders.map(encodeURIComponent).join(',');
+      allScreenshotsBtn.style.display = '';
+    } else {
+      allScreenshotsBtn.style.display = 'none';
+    }
+
+    let failuresHtml = '';
+    if (failedTests.length > 0) {
+      const label = failedTests.length > 1 ? 'tests échoués' : 'test échoué';
+      failuresHtml = `<div class="results-failures-title">${failedTests.length} ${label}</div>`;
+      for (const t of failedTests) {
+        failuresHtml += `
+          <div class="results-failure-item">
+            <div class="results-failure-name">${t.name}</div>
+          </div>`;
+      }
+    } else {
+      failuresHtml = `<div class="results-all-passed">Tous les tests ont réussi ✓</div>`;
+    }
+
+    document.getElementById('results-body').innerHTML = `
+      <div class="results-stats-grid">
+        <div class="results-stat-card is-neutral">
+          <div class="stat-val">${launched}</div>
+          <div class="stat-lbl">Lancés</div>
+        </div>
+        <div class="results-stat-card is-success">
+          <div class="stat-val">${passed}</div>
+          <div class="stat-lbl">Réussis</div>
+        </div>
+        <div class="results-stat-card is-danger">
+          <div class="stat-val">${failed}</div>
+          <div class="stat-lbl">Échoués</div>
+        </div>
+        <div class="results-stat-card is-time">
+          <div class="stat-val">${timeStr}</div>
+          <div class="stat-lbl">Durée totale</div>
+        </div>
+      </div>
+      ${failuresHtml}
+    `;
+
+    document.getElementById('results-modal').style.display = 'flex';
+  }
+
+  // ── Drag & Drop (queue only) ──
+
+  function getDragAfterElement(container, y) {
+    const cards = [...container.querySelectorAll('.test-card:not(.is-dragging)')];
+    return cards.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  function makeDraggable(container) {
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const dragging = document.querySelector('.is-dragging');
+      if (!dragging) return;
+      const afterEl = getDragAfterElement(container, e.clientY);
+      if (afterEl == null) {
+        container.appendChild(dragging);
+      } else {
+        container.insertBefore(dragging, afterEl);
+      }
+    });
+  }
+
+  // ── Fake tests for layout preview ──
+
+  function generateFakeTests(count) {
+    const types = ['quiz', 'jury', 'correction', 'validation', 'signature'];
+    return Array.from({ length: count }, (_, i) => {
+      const type = types[i % types.length];
+      const cas  = i + 1;
+      return {
+        filename: `99-cas${cas}-${type}-noai.spec.ts`,
+        cas: `cas${cas}`,
+        order: 99,
+        casNum: cas,
+        type,
+        typeLabel: type.charAt(0).toUpperCase() + type.slice(1),
+        mode: 'noai',
+        name: `[FICTIF] Cas ${cas} - ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+        _fake: true,
+      };
+    });
+  }
+
+  // ── Init ──
+
+  async function init() {
+    const tests = await fetch('/api/tests').then((r) => r.json());
+    allTests = [...tests, ...generateFakeTests(100)];
+
+    renderAvailable('');
+
+    document.getElementById('search-available').addEventListener('input', (e) => {
+      renderAvailable(e.target.value.trim());
+    });
+
+    makeDraggable(document.getElementById('queue-list'));
+
+    document.getElementById('btn-run-queue').addEventListener('click', async () => {
+      const sessionTests = [...queue];
+      if (sessionTests.length === 0) return;
+      const startTime = Date.now();
+      for (const t of sessionTests) {
+        await runTest(t);
+      }
+      showResultsModal(sessionTests, Date.now() - startTime);
+    });
+
+    const closeModal = () => { document.getElementById('results-modal').style.display = 'none'; };
+    document.getElementById('results-close').addEventListener('click', closeModal);
+    document.getElementById('results-close-btn').addEventListener('click', closeModal);
+    document.getElementById('results-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('results-modal')) closeModal();
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>

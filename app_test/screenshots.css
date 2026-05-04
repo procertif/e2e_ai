@@ -1,0 +1,228 @@
+/* ── Test group card ── */
+.test-group {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.625rem;
+  margin-bottom: 0.875rem;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.test-group.is-open {
+  border-color: #c8d8fd;
+  box-shadow: 0 2px 12px rgba(13, 110, 253, 0.07);
+}
+
+.test-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  gap: 0.75rem;
+}
+
+.test-group-header:hover { background: #f8f9ff; }
+
+.test-group-title {
+  font-size: 1.0rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+  flex: 1;
+}
+
+.test-group-meta {
+  font-size: 1.0rem;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.test-group-chevron {
+  color: #adb5bd;
+  font-size: 1.0rem;
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+
+.test-group.is-open .test-group-chevron {
+  transform: rotate(90deg);
+}
+
+/* ── Screenshots grid (hidden by default) ── */
+.test-group-body {
+  display: none;
+  border-top: 1px solid #e9ecef;
+  padding: 1rem;
+  background: #fafbff;
+}
+
+.test-group.is-open .test-group-body {
+  display: block;
+}
+
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.875rem;
+}
+
+.screenshot-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.screenshot-card:hover {
+  box-shadow: 0 3px 12px rgba(13, 110, 253, 0.1);
+  border-color: #c8d8fd;
+}
+
+.screenshot-thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+  background: #f4f6fb;
+}
+
+.screenshot-label {
+  font-size: 1.0rem;
+  color: #495057;
+  padding: 0.4rem 0.6rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Search ── */
+.search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+}
+
+.search-wrap svg {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #adb5bd;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.3rem 0.75rem 0.3rem 2rem;
+  font-size: 1.0rem;
+  font-family: "Poppins", sans-serif;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus { border-color: #0d6efd; }
+
+/* ── Lightbox ── */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(3px);
+  cursor: zoom-out;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 0.5rem;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  cursor: default;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.22); }
+.lightbox-nav.prev { left: 1rem; }
+.lightbox-nav.next { right: 1rem; }
+
+.lightbox-counter {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.7);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.lightbox-caption {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  max-width: 80vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-content {
+  overflow-y: auto;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #6c757d;
+}
+
+.no-results {
+  padding: 2rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+}

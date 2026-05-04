@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procertif — Screenshots</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/index.css" />
+  <link rel="stylesheet" href="/screenshots.css" />
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar-label">Test Runner E2E</div>
+
+    <hr class="divider" />
+
+    <a href="/" class="sidebar-screenshots-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
+      </svg>
+      Retour aux tests
+    </a>
+
+    <hr class="divider" />
+
+    <button class="sidebar-screenshots-link" id="btn-refresh" style="border:none;cursor:pointer;background:none;text-align:left;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+      </svg>
+      Rafraîchir
+    </button>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="app-main">
+
+    <div class="app-topbar">
+      <h1>Screenshots</h1>
+      <span class="badge-env">TEST RESULTS</span>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="search-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+          </svg>
+          <input type="text" id="search-input" class="search-input" placeholder="Rechercher un test…" />
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-close-all" style="font-size:0.75rem;white-space:nowrap;">
+          Fermer tous
+        </button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div id="groups-container">
+        <div class="empty-state"><p>Chargement…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Lightbox ── -->
+<div id="lightbox" class="lightbox-overlay" style="display:none;">
+  <button class="lightbox-close" id="lightbox-close">×</button>
+  <button class="lightbox-nav prev" id="lightbox-prev">‹</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+  <button class="lightbox-nav next" id="lightbox-next">›</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+  <div class="lightbox-caption" id="lightbox-caption"></div>
+</div>
+
+<script>
+  let groups = [];
+  let lightboxItems = [];
+  let lightboxIndex = 0;
+
+  const urlFolders = new URLSearchParams(window.location.search).get('folders');
+  const filterFolders = urlFolders ? new Set(urlFolders.split(',').map(decodeURIComponent)) : null;
+
+  async function load() {
+    try {
+      const allGroups = await fetch('/api/screenshots').then(r => r.json());
+      groups = filterFolders
+        ? allGroups.filter(g => filterFolders.has(g.folder))
+        : allGroups;
+      render(document.getElementById('search-input').value.trim());
+      if (filterFolders) {
+        for (const el of document.querySelectorAll('.test-group')) {
+          el.classList.add('is-open');
+        }
+      }
+    } catch {
+      document.getElementById('groups-container').innerHTML =
+        `<div class="empty-state"><p style="color:#dc3545;">Erreur lors du chargement.</p></div>`;
+    }
+  }
+
+  function render(query) {
+    const container = document.getElementById('groups-container');
+    const q = query.toLowerCase();
+
+    const queryTokens = q.split(/\s+/).filter(Boolean);
+    const filtered = queryTokens.length === 0
+      ? groups
+      : groups.filter(g => {
+          const nameTokens = g.testName.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+          return queryTokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
+        });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="no-results">Aucun test correspondant à « ${query} ».</div>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map(g => {
+      const count = g.screenshots.length;
+      const cards = g.screenshots.map((s, i) => `
+        <div class="screenshot-card" data-local-index="${i}">
+          <img class="screenshot-thumb" src="${s.url}" alt="${s.file}" loading="lazy" />
+          <div class="screenshot-label">${s.file}</div>
+        </div>`
+      ).join('');
+
+      return `
+        <div class="test-group" data-folder="${g.folder}">
+          <div class="test-group-header">
+            <p class="test-group-title">${g.testName}</p>
+            <span class="test-group-meta">${count} screenshot${count > 1 ? 's' : ''}</span>
+            <span class="test-group-chevron">›</span>
+          </div>
+          <div class="test-group-body">
+            <div class="screenshots-grid">${cards}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    for (const groupEl of container.querySelectorAll('.test-group')) {
+      const folder = groupEl.dataset.folder;
+      const group = groups.find(g => g.folder === folder);
+
+      groupEl.querySelector('.test-group-header').addEventListener('click', () => {
+        groupEl.classList.toggle('is-open');
+      });
+
+      for (const card of groupEl.querySelectorAll('.screenshot-card')) {
+        card.addEventListener('click', () => {
+          openLightbox(
+            group.screenshots.map(s => ({ ...s, testName: group.testName })),
+            parseInt(card.dataset.localIndex)
+          );
+        });
+      }
+    }
+  }
+
+  // ── Search ──
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    render(e.target.value.trim());
+  });
+
+  // ── Close all ──
+  document.getElementById('btn-close-all').addEventListener('click', () => {
+    for (const g of document.querySelectorAll('.test-group.is-open')) {
+      g.classList.remove('is-open');
+    }
+  });
+
+  // ── Refresh ──
+  document.getElementById('btn-refresh').addEventListener('click', load);
+
+  // ── Lightbox ──
+  function openLightbox(items, index) {
+    lightboxItems = items;
+    lightboxIndex = index;
+    updateLightbox();
+    document.getElementById('lightbox').style.display = 'flex';
+  }
+
+  function updateLightbox() {
+    const item = lightboxItems[lightboxIndex];
+    document.getElementById('lightbox-img').src = item.url;
+    document.getElementById('lightbox-caption').textContent = `${item.testName} — ${item.file}`;
+    document.getElementById('lightbox-counter').textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
+    document.getElementById('lightbox-prev').style.display = lightboxIndex === 0 ? 'none' : '';
+    document.getElementById('lightbox-next').style.display = lightboxIndex === lightboxItems.length - 1 ? 'none' : '';
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lightbox-img').src = '';
+  }
+
+  document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+  document.getElementById('lightbox-prev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (lightboxIndex > 0) { lightboxIndex--; updateLightbox(); }
+  });
+  document.getElementById('lightbox-next').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (lightboxIndex < lightboxItems.length - 1) { lightboxIndex++; updateLightbox(); }
+  });
+  document.getElementById('lightbox').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('lightbox').style.display === 'none') return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft' && lightboxIndex > 0) { lightboxIndex--; updateLightbox(); }
+    if (e.key === 'ArrowRight' && lightboxIndex < lightboxItems.length - 1) { lightboxIndex++; updateLightbox(); }
+  });
+
+  load();
+</script>
+</body>
+</html>

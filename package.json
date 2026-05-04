@@ -1,0 +1,12 @@
+{
+  "name": "procertif-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "server": "node app_test/server.js",
+    "test": "npx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1"
+  }
+}
