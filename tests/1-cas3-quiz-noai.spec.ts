@@ -2,7 +2,7 @@ import { test } from "@playwright/test";
 import * as path from "path";
 import * as fs from "fs";
 
-const SCREENSHOTS_DIR = path.join(__dirname, "screenshots", "cas3-quiz-noai");
+const SCREENSHOTS_DIR = path.join(__dirname, "..", "screenshots", "cas3-quiz-noai");
 const BASE_URL = "https://app.procertif.dev";
 const EMAIL = "degertbenjamin3@gmail.com";
 const OTP_CODE = "444444";

@@ -5,6 +5,7 @@ const path = require("path");
 
 const PORT = 3333;
 const E2E_DIR = path.resolve(__dirname, "..");
+const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
 
 function parseEnvFile(filePath) {
@@ -29,29 +30,41 @@ const OPENAI_API_KEY = envLocal.OPENAI_API_KEY || process.env.OPENAI_API_KEY || 
 const runs = new Map();
 
 function listTests() {
+	if (!fs.existsSync(TESTS_DIR)) return [];
 	return fs
-		.readdirSync(E2E_DIR)
-		.filter((f) => /^\d+-cas\d+-.+-(ai|noai)\.spec\.ts$/.test(f))
+		.readdirSync(TESTS_DIR)
+		.filter((f) => f.endsWith(".spec.ts"))
 		.map((filename) => {
 			const m = filename
 				.replace(".spec.ts", "")
 				.match(/^(\d+)-(cas(\d+))-(.+?)-(ai|noai)$/);
-			if (!m) return null;
-			const [, order, cas, casNum, type, mode] = m;
-			const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+			if (m) {
+				const [, order, cas, casNum, type, mode] = m;
+				const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+				return {
+					filename,
+					cas,
+					order: parseInt(order),
+					casNum: parseInt(casNum),
+					type,
+					typeLabel,
+					mode,
+					name: `Cas ${casNum} - ${typeLabel}`,
+				};
+			}
+			const baseName = filename.replace(".spec.ts", "");
 			return {
 				filename,
-				cas,
-				order: parseInt(order),
-				casNum: parseInt(casNum),
-				type,
-				typeLabel,
-				mode,
-				name: `Cas ${casNum} - ${typeLabel}`,
+				cas: baseName,
+				order: 0,
+				casNum: 0,
+				type: baseName,
+				typeLabel: baseName,
+				mode: "noai",
+				name: baseName.replace(/-/g, " "),
 			};
 		})
-		.filter(Boolean)
-		.sort((a, b) => a.order - b.order || a.type.localeCompare(b.type));
+		.sort((a, b) => a.order - b.order || a.filename.localeCompare(b.filename));
 }
 
 function listScreenshots() {
@@ -96,7 +109,7 @@ function startRun(filename) {
 
 	const proc = spawn(
 		"npx",
-		["playwright", "test", filename, "--reporter=line", "--project=chromium", "--headed"],
+		["playwright", "test", `tests/${filename}`, "--reporter=line", "--project=chromium", "--headed"],
 		{
 			cwd: E2E_DIR,
 			env: { ...process.env, OPENAI_API_KEY, OPEN_AI_KEY: OPENAI_API_KEY },
@@ -226,8 +239,9 @@ http
 		if (req.method === "POST" && runMatch) {
 			const filename = decodeURIComponent(runMatch[1]);
 			if (
-				!/^\d+-cas\d+-.+-(ai|noai)\.spec\.ts$/.test(filename) ||
-				!fs.existsSync(path.join(E2E_DIR, filename))
+				!filename.endsWith(".spec.ts") ||
+				path.basename(filename) !== filename ||
+				!fs.existsSync(path.join(TESTS_DIR, filename))
 			) {
 				res.writeHead(400);
 				res.end("Invalid test file");

@@ -1,15 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-	testDir: ".",
-	testMatch: /\d+-cas\d+-.+-(ai|noai)\.spec\.ts/,
+	testDir: "tests",
 	fullyParallel: false,
 	retries: 0,
 	reporter: "line",
 	use: {
 		baseURL: "https://app.procertif.dev",
-		trace: "on-first-retry",
-		screenshot: "only-on-failure",
+		trace: "off",
+		screenshot: "off",
 		ignoreHTTPSErrors: true,
 	},
 	projects: [

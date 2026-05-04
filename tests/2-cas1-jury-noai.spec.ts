@@ -2,7 +2,7 @@ import { test } from "@playwright/test";
 import * as path from "path";
 import * as fs from "fs";
 
-const SCREENSHOTS_DIR = path.join(__dirname, "screenshots", "cas1-jury-noai");
+const SCREENSHOTS_DIR = path.join(__dirname, "..", "screenshots", "cas1-jury-noai");
 const JURY_URL = "https://app.procertif.dev/certification/69dd020b6478d/jury/69ef77d3a5517/review";
 
 test.beforeAll(() => {
