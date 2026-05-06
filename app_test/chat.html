@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procertif — Chat Claude</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="/index.css" />
+  <link rel="stylesheet" href="/chat.css" />
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar-label">Test Runner E2E</div>
+    <hr class="divider" />
+    <nav class="sidebar-nav">
+      <a href="/" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1"/>
+        </svg>
+        Tests
+      </a>
+      <a href="/screenshots" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+          <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+        </svg>
+        Screenshots
+      </a>
+      <a href="/groups" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+        </svg>
+        Groupes
+      </a>
+      <a href="/chat" class="sidebar-link sidebar-link--active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
+        </svg>
+        Chat
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="app-main">
+    <div class="chat-layout">
+
+      <!-- Header -->
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <h1 class="chat-title">Chat Claude</h1>
+          <span class="chat-scope">Accès : /home/procertif/e2e_ai &amp; /home/procertif/www</span>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-new-chat">Nouvelle conversation</button>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-welcome" id="chat-welcome">
+          <div class="chat-welcome-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="#6366f1" viewBox="0 0 16 16">
+              <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
+            </svg>
+          </div>
+          <p>Bonjour ! Je peux lire et modifier les fichiers dans <code>e2e_ai</code> et <code>www</code>. Que puis-je faire pour vous ?</p>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-area">
+        <div class="chat-input-wrap" id="chat-input-wrap">
+          <textarea
+            id="chat-input"
+            class="chat-input"
+            placeholder="Posez votre question…"
+            rows="1"
+          ></textarea>
+          <button class="chat-send-btn" id="btn-send" disabled title="Envoyer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="chat-hint">Entrée pour envoyer &middot; Shift+Entrée pour nouvelle ligne</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  let sessionId = null;
+  let isStreaming = false;
+
+  const messagesEl = document.getElementById('chat-messages');
+  const inputEl    = document.getElementById('chat-input');
+  const sendBtn    = document.getElementById('btn-send');
+  const inputWrap  = document.getElementById('chat-input-wrap');
+  const newChatBtn = document.getElementById('btn-new-chat');
+
+  // ── Auto-resize textarea ──
+  inputEl.addEventListener('input', () => {
+    sendBtn.disabled = !inputEl.value.trim() || isStreaming;
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled && !isStreaming) sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', () => { if (!isStreaming) sendMessage(); });
+
+  newChatBtn.addEventListener('click', resetChat);
+
+  function resetChat() {
+    sessionId = null;
+    messagesEl.innerHTML = `
+      <div class="chat-welcome" id="chat-welcome">
+        <div class="chat-welcome-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="#6366f1" viewBox="0 0 16 16">
+            <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
+          </svg>
+        </div>
+        <p>Nouvelle conversation. Je peux lire et modifier les fichiers dans <code>e2e_ai</code> et <code>www</code>.</p>
+      </div>`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function removeWelcome() {
+    const w = document.getElementById('chat-welcome');
+    if (w) w.remove();
+  }
+
+  function appendUserMessage(text) {
+    removeWelcome();
+    const div = document.createElement('div');
+    div.className = 'chat-message chat-message--user';
+    div.innerHTML = `<div class="msg-bubble msg-bubble--user">${escHtml(text)}</div>`;
+    messagesEl.appendChild(div);
+    scrollBottom();
+  }
+
+  function appendThinking() {
+    const div = document.createElement('div');
+    div.className = 'chat-message chat-message--assistant';
+    div.id = 'msg-thinking';
+    div.innerHTML = `
+      <div class="msg-bubble msg-bubble--assistant">
+        <div class="thinking-dots"><span></span><span></span><span></span></div>
+      </div>`;
+    messagesEl.appendChild(div);
+    scrollBottom();
+    return div;
+  }
+
+  function appendAssistantBubble() {
+    const div = document.createElement('div');
+    div.className = 'chat-message chat-message--assistant';
+    div.innerHTML = `
+      <div class="msg-bubble msg-bubble--assistant">
+        <div class="tool-pills" id="tool-pills-current" style="display:none;"></div>
+        <div class="msg-content" id="msg-content-current"></div>
+      </div>`;
+    messagesEl.appendChild(div);
+    scrollBottom();
+    return div;
+  }
+
+  function renderText(msgEl, text, done) {
+    const content = msgEl.querySelector('.msg-content');
+    if (!content) return;
+    content.innerHTML = text ? marked.parse(text) : '';
+    if (!done) {
+      const cursor = document.createElement('span');
+      cursor.className = 'typing-cursor';
+      cursor.textContent = '▋';
+      content.appendChild(cursor);
+    }
+    scrollBottom();
+  }
+
+  function addToolPill(msgEl, toolName, inputData) {
+    const pillsEl = msgEl.querySelector('.tool-pills');
+    if (!pillsEl) return;
+    pillsEl.style.display = 'flex';
+
+    const label = formatToolLabel(toolName, inputData);
+    const cls   = toolPillClass(toolName);
+    const pill  = document.createElement('span');
+    pill.className = `tool-pill tool-pill--${cls}`;
+    pill.title = JSON.stringify(inputData, null, 2);
+    pill.textContent = label;
+    pillsEl.appendChild(pill);
+  }
+
+  function formatToolLabel(name, input) {
+    const n = name.toLowerCase();
+    if (n === 'read' && input?.file_path)  return '📄 ' + shortPath(input.file_path);
+    if (n === 'write' && input?.file_path) return '✏️ ' + shortPath(input.file_path);
+    if (n === 'edit' && input?.file_path)  return '✏️ ' + shortPath(input.file_path);
+    if (n === 'bash' && input?.command)    return '$ ' + input.command.slice(0, 48) + (input.command.length > 48 ? '…' : '');
+    if (input?.path)                       return name + ': ' + shortPath(input.path);
+    if (input?.query || input?.pattern)    return '🔍 ' + (input.query || input.pattern).slice(0, 40);
+    return name;
+  }
+
+  function shortPath(p) {
+    return p.replace('/home/procertif/', '~/').replace('/home/benjamin/', '~/');
+  }
+
+  function toolPillClass(name) {
+    const n = name.toLowerCase();
+    if (n === 'read')  return 'read';
+    if (n === 'write') return 'write';
+    if (n === 'edit')  return 'edit';
+    if (n === 'bash')  return 'bash';
+    return 'search';
+  }
+
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function setStreaming(val) {
+    isStreaming = val;
+    inputWrap.classList.toggle('is-streaming', val);
+    sendBtn.disabled = val || !inputEl.value.trim();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isStreaming) return;
+
+    setStreaming(true);
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    appendUserMessage(text);
+    const thinkingEl = appendThinking();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, sessionId }),
+      });
+
+      if (!res.ok) throw new Error('Erreur serveur ' + res.status);
+      const { runId } = await res.json();
+
+      thinkingEl.remove();
+      const msgEl  = appendAssistantBubble();
+      let accText  = '';
+
+      const es = new EventSource('/api/chat-stream/' + runId);
+
+      es.onmessage = (evt) => {
+        let event;
+        try { event = JSON.parse(evt.data); } catch { return; }
+
+        if (event.type === 'delta') {
+          accText += event.text;
+          renderText(msgEl, accText, false);
+          return;
+        }
+
+        if (event.type === 'tool_start') {
+          addToolPill(msgEl, event.name, null);
+          return;
+        }
+
+        if (event.type === 'tool_result') {
+          // optionally update the last pill with a preview — skip for now
+          return;
+        }
+
+        if (event.type === 'done') {
+          if (event.sessionId) sessionId = event.sessionId;
+          if (event.status === 'error') {
+            renderText(msgEl, accText || `*(Erreur : ${event.error || 'inconnue'})*`, true);
+          } else {
+            renderText(msgEl, accText || '*(Aucune réponse)*', true);
+          }
+          es.close();
+          setStreaming(false);
+        }
+      };
+
+      es.onerror = () => {
+        renderText(msgEl, accText || '*(Erreur de connexion)*', true);
+        es.close();
+        setStreaming(false);
+      };
+
+    } catch (err) {
+      const t = document.getElementById('msg-thinking');
+      if (t) t.remove();
+      const msgEl = appendAssistantBubble();
+      renderText(msgEl, `*(Erreur : ${escHtml(err.message)})*`, true);
+      setStreaming(false);
+    }
+  }
+
+  inputEl.focus();
+</script>
+</body>
+</html>

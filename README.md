@@ -116,3 +116,69 @@ Exemples : `1-cas1-quiz-noai.spec.ts`, `2-cas1-jury-noai.spec.ts`
 - L'exécution est séquentielle (`fullyParallel: false`, `retries: 0`).
 - Navigateur : Chromium uniquement.
 - Les screenshots sont gitignorées.
+
+
+## Utilisation du chatbot ia
+### Première utilisation
+```
+Il y avait 5 fichiers de test, cas1 à 4 quiz et cas1 jury.
+J'ai supprimé le cas4 quiz et je lui ai demandé d'écrire le cas 4 avec ce prompt.
+```
+```
+Est-ce que tu peux m'écrire un test (1-cas4-quiz-noai.spec.ts) avec playwright qui : 
+Se rends sur https://app.procertif.dev/mywallet
+Screenshot
+Se connecte avec degertbenjamin3@gmail.com
+Screenshot
+Attendre que le champ pour le code apparaisse
+Screenshot
+Rentrer le code 444444
+Screenshot
+Clique sur Passer l'évaluation
+Screenshot
+Clique sur Cas 4
+Screenshot
+Clique sur Commencer
+Scrennshot
+Cocher la première réponse
+Screenshot
+Clique sur Suivant
+Scrennshot
+Clique sur Précédent
+Scrennshot
+Cocher la deuxième réponse
+Scrennshot
+Clique sur Suivant
+Scrennshot
+Cocher la première réponse
+Scrennshot
+Clique sur Suivant
+Scrennshot
+Cocher la première réponse
+Scrennshot
+Clique sur Suivant
+Scrennshot
+Clique sur Précédent
+Scrennshot
+Cocher la deuxième réponse
+Scrennshot
+Clique sur Suivant
+Scrennshot
+Cocher la première réponse
+Scrennshot
+Clique sur Terminer
+Scrennshot
+Clique sur Retour
+Scrennshot
+Coche la deuxième réponse
+Scrennshot
+Clique sur Terminer
+Scrennshot
+Clique sur Terminer
+Scrennshot
+
+Pour faire le test, lis les fichiers de code pour avoir les bons composants et inspire toi des autres tests
+```
+```
+Le test était fonctionnel au premier essai
+```

@@ -29,7 +29,106 @@ function parseEnvFile(filePath) {
 const envLocal = parseEnvFile(path.join(E2E_DIR, ".env"));
 const OPENAI_API_KEY = envLocal.OPENAI_API_KEY || process.env.OPENAI_API_KEY || "";
 
+const WWW_DIR = "/home/procertif/www";
+
 const runs = new Map();
+const chatRuns = new Map();
+const chatSessions = new Map(); // runId -> CLI session_id string
+
+function startChatRun(message, sessionId) {
+	const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+	const run = { events: [], status: "running", clients: new Set() };
+	chatRuns.set(runId, run);
+
+	const pushEvent = (event) => {
+		const text = JSON.stringify(event);
+		run.events.push(text);
+		for (const res of run.clients) res.write(`data: ${text}\n\n`);
+	};
+
+	(async () => {
+		const args = [
+			"--print",
+			"--output-format", "stream-json",
+			"--verbose",
+			"--include-partial-messages",
+			"--dangerously-skip-permissions",
+		];
+
+		// Resume previous CLI session if one exists
+		const cliSessionId = sessionId && chatSessions.get(sessionId);
+		if (cliSessionId) {
+			chatSessions.delete(sessionId);
+			args.push("--resume", cliSessionId);
+		}
+
+		const proc = spawn("claude", args, {
+			stdio: ["pipe", "pipe", "pipe"],
+			env: { ...process.env },
+			cwd: E2E_DIR,
+		});
+
+		proc.stdin.write(message);
+		proc.stdin.end();
+		proc.stderr.resume(); // drain to prevent blocking
+
+		let buf = "";
+		let newCliSessionId = null;
+
+		proc.stdout.on("data", (chunk) => {
+			buf += chunk.toString();
+			const lines = buf.split("\n");
+			buf = lines.pop() ?? "";
+			for (const line of lines) parseLine(line);
+		});
+
+		proc.stdout.on("close", () => {
+			if (buf.trim()) parseLine(buf.trim());
+		});
+
+		function parseLine(line) {
+			if (!line.trim()) return;
+			try {
+				const e = JSON.parse(line);
+
+				if (e.type === "stream_event") {
+					const ev = e.event;
+					if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+						pushEvent({ type: "delta", text: ev.delta.text });
+					}
+					if (ev?.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+						pushEvent({ type: "tool_start", name: ev.content_block.name });
+					}
+				}
+
+				if (e.type === "result") {
+					newCliSessionId = e.session_id || null;
+				}
+			} catch { /* skip malformed lines */ }
+		}
+
+		await new Promise((resolve, reject) => {
+			proc.on("close", (code) => (code === 0 || code === null ? resolve() : reject(new Error(`CLI exit ${code}`))));
+			proc.on("error", reject);
+		});
+
+		// Store CLI session ID so next message can resume
+		if (newCliSessionId) chatSessions.set(runId, newCliSessionId);
+
+		run.status = "done";
+		pushEvent({ type: "done", status: "done", sessionId: runId });
+		for (const res of run.clients) res.end();
+		run.clients.clear();
+		setTimeout(() => chatRuns.delete(runId), 5 * 60 * 1000);
+	})().catch((err) => {
+		run.status = "error";
+		pushEvent({ type: "done", status: "error", error: err.message });
+		for (const res of run.clients) res.end();
+		run.clients.clear();
+	});
+
+	return runId;
+}
 
 function listTests() {
 	if (!fs.existsSync(TESTS_DIR)) return [];
@@ -402,6 +501,62 @@ http
 				res.write(
 					`data: ${JSON.stringify({ done: true, status: run.status })}\n\n`,
 				);
+				res.end();
+				return;
+			}
+			run.clients.add(res);
+			req.on("close", () => run.clients.delete(res));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/chat") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "chat.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/chat.css") {
+			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "chat.css")));
+			return;
+		}
+
+		if (req.method === "POST" && pathname === "/api/chat") {
+			try {
+				const body = await readBody(req);
+				const { message, sessionId } = body;
+				if (!message || typeof message !== "string" || !message.trim()) {
+					res.writeHead(400);
+					res.end("Message required");
+					return;
+				}
+				const runId = startChatRun(message.trim(), sessionId || null);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ runId }));
+			} catch {
+				res.writeHead(400);
+				res.end("Bad request");
+			}
+			return;
+		}
+
+		const chatStreamMatch = pathname.match(/^\/api\/chat-stream\/(.+)$/);
+		if (req.method === "GET" && chatStreamMatch) {
+			const run = chatRuns.get(chatStreamMatch[1]);
+			if (!run) {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			res.writeHead(200, {
+				"Content-Type": "text/event-stream",
+				"Cache-Control": "no-cache",
+				Connection: "keep-alive",
+			});
+			for (const event of run.events) {
+				res.write(`data: ${event}\n\n`);
+			}
+			if (run.status !== "running") {
 				res.end();
 				return;
 			}
