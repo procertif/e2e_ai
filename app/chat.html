@@ -99,6 +99,8 @@
 
   let sessionId = null;
   let isStreaming = false;
+  let chatMessages = []; // { role, content, tools? }
+  let currentTools = [];
 
   const messagesEl = document.getElementById('chat-messages');
   const inputEl    = document.getElementById('chat-input');
@@ -126,6 +128,9 @@
 
   function resetChat() {
     sessionId = null;
+    chatMessages = [];
+    currentTools = [];
+    localStorage.removeItem('procertif_chat');
     messagesEl.innerHTML = `
       <div class="chat-welcome" id="chat-welcome">
         <div class="chat-welcome-icon">
@@ -135,6 +140,35 @@
         </div>
         <p>Nouvelle conversation. Je peux lire et modifier les fichiers dans <code>e2e_ai</code> et <code>www</code>.</p>
       </div>`;
+  }
+
+  function saveChatState() {
+    try { localStorage.setItem('procertif_chat', JSON.stringify({ sessionId, messages: chatMessages })); } catch {}
+  }
+
+  function renderSavedMessage(msg) {
+    if (msg.role === 'user') {
+      const div = document.createElement('div');
+      div.className = 'chat-message chat-message--user';
+      div.innerHTML = `<div class="msg-bubble msg-bubble--user">${escHtml(msg.content)}</div>`;
+      messagesEl.appendChild(div);
+    } else {
+      const div = appendAssistantBubble();
+      for (const t of (msg.tools || [])) addToolPill(div, t.name, t.input);
+      renderText(div, msg.content, true);
+    }
+  }
+
+  function restoreChatState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('procertif_chat') || 'null');
+      if (!saved?.messages?.length) return;
+      sessionId = saved.sessionId || null;
+      chatMessages = saved.messages;
+      removeWelcome();
+      for (const msg of chatMessages) renderSavedMessage(msg);
+      scrollBottom();
+    } catch {}
   }
 
   function escHtml(str) {
@@ -253,6 +287,8 @@
     inputEl.style.height = 'auto';
 
     appendUserMessage(text);
+    chatMessages.push({ role: 'user', content: text });
+    currentTools = [];
     const thinkingEl = appendThinking();
 
     try {
@@ -282,7 +318,8 @@
         }
 
         if (event.type === 'tool_start') {
-          addToolPill(msgEl, event.name, null);
+          addToolPill(msgEl, event.name, event.input || null);
+          currentTools.push({ name: event.name, input: event.input || null });
           return;
         }
 
@@ -293,11 +330,12 @@
 
         if (event.type === 'done') {
           if (event.sessionId) sessionId = event.sessionId;
-          if (event.status === 'error') {
-            renderText(msgEl, accText || `*(Erreur : ${event.error || 'inconnue'})*`, true);
-          } else {
-            renderText(msgEl, accText || '*(Aucune réponse)*', true);
-          }
+          const finalText = event.status === 'error'
+            ? (accText || `*(Erreur : ${event.error || 'inconnue'})*`)
+            : (accText || '*(Aucune réponse)*');
+          renderText(msgEl, finalText, true);
+          chatMessages.push({ role: 'assistant', content: finalText, tools: [...currentTools] });
+          saveChatState();
           es.close();
           setStreaming(false);
         }
@@ -318,6 +356,7 @@
     }
   }
 
+  restoreChatState();
   inputEl.focus();
 </script>
 </body>

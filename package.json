@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "server": "node app_test/server.js",
+    "server": "node app/server.js",
     "test": "npx playwright test"
   },
   "devDependencies": {

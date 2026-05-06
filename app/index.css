@@ -258,6 +258,7 @@ html, body {
 
 .badge-quiz { background: #e8f4fd; color: #0a6fa8; }
 .badge-jury { background: #f3e8fd; color: #7c3aed; }
+.badge-est { background: #f0fdf4; color: #16a34a; font-size: 0.72rem; font-weight: 500; padding: 0.2rem 0.5rem; border-radius: 20px; }
 
 .test-actions {
   display: flex;

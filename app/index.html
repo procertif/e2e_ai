@@ -137,6 +137,15 @@
   const queue = [];
   const queueSet = new Set();
 
+  function formatDuration(ms) {
+    if (!ms) return null;
+    const s = Math.round(ms / 1000);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return r > 0 ? `${m}m ${r}s` : `${m}m`;
+  }
+
   function escHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
@@ -230,10 +239,30 @@
     renderActiveTab();
   }
 
+  function updateEstBadge(filename, ms) {
+    const card = document.getElementById(cardId(filename));
+    if (!card) return;
+    const badges = card.querySelector('.test-badges');
+    if (!badges) return;
+    let badge = badges.querySelector('.badge-est');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge-est';
+      badges.appendChild(badge);
+    }
+    badge.textContent = `~${formatDuration(ms)}`;
+  }
+
   function updateQueueCount() {
     const n = queue.length;
-    document.getElementById('queue-count').textContent =
-      n === 0 ? '0 test' : `${n} test${n > 1 ? 's' : ''}`;
+    const totalMs = queue.reduce((a, t) => a + (t.estimatedMs || 0), 0);
+    const knownCount = queue.filter(t => t.estimatedMs).length;
+    let label = n === 0 ? '0 test' : `${n} test${n > 1 ? 's' : ''}`;
+    if (totalMs > 0) {
+      const partial = knownCount < n ? ' partiel' : '';
+      label += ` · ~${formatDuration(totalMs)}${partial}`;
+    }
+    document.getElementById('queue-count').textContent = label;
   }
 
   function renderActiveTab() {
@@ -271,6 +300,7 @@
               <p class="test-name">${test.name}</p>
               <div class="test-badges">
                 <span class="badge-type ${badgeClass(test.type)}">${test.typeLabel}</span>
+                ${test.estimatedMs ? `<span class="badge-est">~${formatDuration(test.estimatedMs)}</span>` : ''}
               </div>
             </div>
           </div>
@@ -376,6 +406,14 @@
         if (msg.done) {
           state[test.filename] = msg.status;
           setCardStatus(test.filename, msg.status);
+          if (msg.estimatedMs != null) {
+            const t = allTests.find(t => t.filename === test.filename);
+            if (t) t.estimatedMs = msg.estimatedMs;
+            const q = queue.find(t => t.filename === test.filename);
+            if (q) q.estimatedMs = msg.estimatedMs;
+            updateEstBadge(test.filename, msg.estimatedMs);
+            updateQueueCount();
+          }
           es.close();
           resolve();
         }

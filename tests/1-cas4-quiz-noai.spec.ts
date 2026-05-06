@@ -16,201 +16,195 @@ test.use({
 	viewport: null,
 });
 
-test("Cas 4 - Navigation multi-questions avec retours", async ({ page }) => {
+const shot = (p: import("@playwright/test").Page, n: number, label: string) =>
+	p.screenshot({ path: path.join(SCREENSHOTS_DIR, `${String(n).padStart(2, "0")}-${label}.png`), fullPage: true });
+
+test("Cas 4 - Navigation quiz avec Précédent/Suivant", async ({ page }) => {
 	test.setTimeout(240_000);
 
-	let stepNum = 1;
-	const ssMain = async (name: string) => {
-		await page.screenshot({
-			path: path.join(SCREENSHOTS_DIR, `${stepNum++}-${name}.png`),
-			fullPage: true,
-		});
-	};
-
-	// 1. Naviguer vers /mywallet
+	// ── 1. Naviguer vers /mywallet ──────────────────────────────────────────
 	await page.goto(`${BASE_URL}/mywallet`, { waitUntil: "domcontentloaded" });
-	await ssMain("mywallet"); // 1
 
-	// 2. Login si nécessaire
 	const passerBtn = page.getByRole("button", { name: /Passer l'évaluation/i }).first();
 	const emailInput = page
 		.locator('input[type="email"], input[name="email"], input[placeholder*="mail" i]')
 		.first();
+
 	await Promise.race([
 		emailInput.waitFor({ state: "visible" }),
 		passerBtn.waitFor({ state: "visible" }),
 	]);
+	await shot(page, 1, "mywallet");
 
+	// ── 2. Connexion si nécessaire ──────────────────────────────────────────
 	if (await emailInput.isVisible()) {
 		await emailInput.fill(EMAIL);
 		await page.getByRole("button", { name: /continuer|log me/i }).click();
-		await ssMain("email-soumis"); // 2
+		await shot(page, 2, "email-saisi");
 
-		// 3. Attendre que le champ OTP apparaisse
+		// Attendre que le champ OTP apparaisse
 		const otpInput = page.locator("#otp_token, .otp_token").first();
 		await otpInput.waitFor({ state: "visible", timeout: 60_000 });
-		await ssMain("champ-code-apparu"); // 3
+		await shot(page, 3, "otp-visible");
 
-		// 4. Rentrer le code
+		// Rentrer le code 444444
 		await otpInput.click();
 		await otpInput.pressSequentially(OTP_CODE, { delay: 50 });
-		await ssMain("code-rentre"); // 4
+		await shot(page, 4, "otp-saisi");
 
 		const validerBtn = page.getByRole("button", { name: /valider/i });
 		await validerBtn.waitFor({ state: "visible", timeout: 30_000 });
 		await validerBtn.click();
 		await page.waitForLoadState("domcontentloaded");
 		await passerBtn.waitFor({ state: "visible", timeout: 15_000 });
+	} else {
+		// Déjà connecté — on prend quand même les screenshots numérotés
+		await shot(page, 2, "email-saisi");
+		await shot(page, 3, "otp-visible");
+		await shot(page, 4, "otp-saisi");
 	}
 
-	// 5. Cliquer sur "Passer l'évaluation"
-	await passerBtn.click();
-	await ssMain("passer-evaluation-clique"); // 5
+	await shot(page, 5, "wallet-connecte");
 
-	// 6. Cliquer sur "Cas 4" (ouvre un nouvel onglet)
+	// ── 3. Ouvrir le dropdown "Passer l'évaluation" ──────────────────────
+	await passerBtn.click();
+
+	// ── 4. Cliquer sur "Cas 4" (ouvre un nouvel onglet) ──────────────────
 	const casLink = page.getByRole("link", { name: /^cas 4$/i }).first();
 	await casLink.waitFor({ timeout: 10_000 });
 	await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+	await shot(page, 6, "dropdown-ouvert");
+
 	const [newPage] = await Promise.all([
 		page.context().waitForEvent("page"),
 		casLink.click(),
 	]);
 	await newPage.waitForLoadState("networkidle");
-	await newPage.screenshot({
-		path: path.join(SCREENSHOTS_DIR, `${stepNum++}-cas4-clique.png`),
-		fullPage: true,
-	}); // 6
 
-	// Helpers pour le nouvel onglet
-	const ss = async (name: string) => {
-		await newPage.screenshot({
-			path: path.join(SCREENSHOTS_DIR, `${stepNum++}-${name}.png`),
-			fullPage: true,
-		});
-	};
-
-	// Cocher la N-ième réponse (1 = première, 2 = deuxième)
-	const cocher = async (index: number) => {
-		const cb = newPage.locator("input.form-check-input").nth(index - 1);
-		await cb.waitFor({ state: "visible", timeout: 15_000 });
-		await cb.scrollIntoViewIfNeeded();
-		await cb.click();
-	};
-
-	// Cliquer un bouton de navigation et attendre la transition de question
-	const clickNav = async (label: string) => {
-		const btn = newPage.getByRole("button", { name: new RegExp(label, "i") }).first();
-		await btn.waitFor({ timeout: 10_000 });
-		const cbHandle = await newPage.locator("input.form-check-input").first().elementHandle();
-		await btn.click();
-		await cbHandle?.waitForElementState("hidden", { timeout: 10_000 }).catch(() => {});
-		await newPage.waitForLoadState("networkidle");
-		await newPage.waitForFunction(() =>
-			document.getAnimations().every((a) => a.playState !== "running"),
-		);
-	};
-
-	// 7. Cliquer sur "Commencer"
+	// ── 5. Clic sur "Commencer" ───────────────────────────────────────────
 	const commencerBtn = newPage.getByRole("button", { name: "Commencer" });
 	await commencerBtn.waitFor({ timeout: 15_000 });
 	await newPage.waitForLoadState("networkidle");
+	await shot(newPage, 7, "player-intro");
 	await commencerBtn.click();
+
+	// Attendre la première question
 	await newPage.locator("input.form-check-input").first().waitFor({ state: "visible", timeout: 15_000 });
 	await newPage.waitForLoadState("networkidle");
-	await ss("commencer-clique"); // 7
+	await newPage.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+	await shot(newPage, 8, "evaluation-demarree");
 
-	// ── Q1 ──────────────────────────────────────────────────────────────────────
+	// ── Helpers locaux ───────────────────────────────────────────────────
+	const waitForNextQuestion = async (oldHandle: import("@playwright/test").ElementHandle | null) => {
+		await oldHandle?.waitForElementState("hidden", { timeout: 10_000 }).catch(() => {});
+		await newPage.waitForLoadState("networkidle");
+		await newPage.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+	};
 
-	// 8. Cocher la 1ère réponse (Q1)
-	await cocher(1);
-	await ss("q1-reponse1-cochee"); // 8
+	const cocherReponse = async (index: number) => {
+		const checkbox = newPage.locator("input.form-check-input").nth(index);
+		await checkbox.waitFor({ state: "visible", timeout: 15_000 });
+		await checkbox.scrollIntoViewIfNeeded();
+		await checkbox.click();
+	};
 
-	// 9. Cliquer sur Suivant → Q2
-	await clickNav("Suivant");
-	await ss("q1-suivant-clique"); // 9
+	const cliquerSuivant = async () => {
+		const btn = newPage.getByRole("button", { name: "Suivant" });
+		await btn.waitFor({ timeout: 10_000 });
+		const handle = await newPage.locator("input.form-check-input").first().elementHandle();
+		await btn.click();
+		await waitForNextQuestion(handle);
+	};
 
-	// 10. Cliquer sur Précédent → retour Q1
-	await clickNav("Précédent");
-	await ss("q2-precedent-clique"); // 10
+	const cliquerPrecedent = async () => {
+		const btn = newPage.getByRole("button", { name: "Précédent" });
+		await btn.waitFor({ timeout: 10_000 });
+		const handle = await newPage.locator("input.form-check-input").first().elementHandle();
+		await btn.click();
+		await waitForNextQuestion(handle);
+	};
 
-	// 11. Cocher la 2ème réponse (Q1)
-	await cocher(2);
-	await ss("q1-reponse2-cochee"); // 11
+	const cliquerTerminer = async () => {
+		const btn = newPage.getByRole("button", { name: "Terminer" });
+		await btn.waitFor({ timeout: 10_000 });
+		await btn.click();
+		await newPage.waitForLoadState("networkidle");
+		await newPage.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+	};
 
-	// 12. Cliquer sur Suivant → Q2
-	await clickNav("Suivant");
-	await ss("q1-suivant2-clique"); // 12
+	// ── Q1 : Cocher la 1ère réponse ──────────────────────────────────────
+	await cocherReponse(0);
+	await shot(newPage, 9, "q1-reponse-1-cochee");
 
-	// ── Q2 ──────────────────────────────────────────────────────────────────────
+	// ── Cliquer Suivant ───────────────────────────────────────────────────
+	await cliquerSuivant();
+	await shot(newPage, 10, "q2-apres-suivant");
 
-	// 13. Cocher la 1ère réponse (Q2)
-	await cocher(1);
-	await ss("q2-reponse1-cochee"); // 13
+	// ── Cliquer Précédent ─────────────────────────────────────────────────
+	await cliquerPrecedent();
+	await shot(newPage, 11, "q1-apres-precedent");
 
-	// 14. Cliquer sur Suivant → Q3
-	await clickNav("Suivant");
-	await ss("q2-suivant-clique"); // 14
+	// ── Q1 : Cocher la 2ème réponse ──────────────────────────────────────
+	await cocherReponse(1);
+	await shot(newPage, 12, "q1-reponse-2-cochee");
 
-	// ── Q3 ──────────────────────────────────────────────────────────────────────
+	// ── Cliquer Suivant ───────────────────────────────────────────────────
+	await cliquerSuivant();
+	await shot(newPage, 13, "q2-apres-suivant-bis");
 
-	// 15. Cocher la 1ère réponse (Q3)
-	await cocher(1);
-	await ss("q3-reponse1-cochee"); // 15
+	// ── Q2 : Cocher la 1ère réponse ──────────────────────────────────────
+	await cocherReponse(0);
+	await shot(newPage, 14, "q2-reponse-1-cochee");
 
-	// 16. Cliquer sur Suivant → Q4
-	await clickNav("Suivant");
-	await ss("q3-suivant-clique"); // 16
+	// ── Cliquer Suivant ───────────────────────────────────────────────────
+	await cliquerSuivant();
+	await shot(newPage, 15, "q3-apres-suivant");
 
-	// 17. Cliquer sur Précédent → retour Q3
-	await clickNav("Précédent");
-	await ss("q4-precedent-clique"); // 17
+	// ── Q3 : Cocher la 1ère réponse ──────────────────────────────────────
+	await cocherReponse(0);
+	await shot(newPage, 16, "q3-reponse-1-cochee");
 
-	// 18. Cocher la 2ème réponse (Q3)
-	await cocher(2);
-	await ss("q3-reponse2-cochee"); // 18
+	// ── Cliquer Suivant ───────────────────────────────────────────────────
+	await cliquerSuivant();
+	await shot(newPage, 17, "q4-apres-suivant");
 
-	// 19. Cliquer sur Suivant → Q4
-	await clickNav("Suivant");
-	await ss("q3-suivant2-clique"); // 19
+	// ── Cliquer Précédent ─────────────────────────────────────────────────
+	await cliquerPrecedent();
+	await shot(newPage, 18, "q3-apres-precedent");
 
-	// ── Q4 ──────────────────────────────────────────────────────────────────────
+	// ── Q3 : Cocher la 2ème réponse ──────────────────────────────────────
+	await cocherReponse(1);
+	await shot(newPage, 19, "q3-reponse-2-cochee");
 
-	// 20. Cocher la 1ère réponse (Q4)
-	await cocher(1);
-	await ss("q4-reponse1-cochee"); // 20
+	// ── Cliquer Suivant ───────────────────────────────────────────────────
+	await cliquerSuivant();
+	await shot(newPage, 20, "q4-apres-suivant-bis");
 
-	// 21. Cliquer sur Terminer
-	const terminerBtn = newPage.getByRole("button", { name: /terminer/i }).first();
-	await terminerBtn.waitFor({ timeout: 10_000 });
-	await terminerBtn.click();
-	await newPage.waitForLoadState("networkidle");
-	await ss("terminer1-clique"); // 21
+	// ── Q4 : Cocher la 1ère réponse ──────────────────────────────────────
+	await cocherReponse(0);
+	await shot(newPage, 21, "q4-reponse-1-cochee");
 
-	// 22. Cliquer sur Retour
-	const retourBtn = newPage.getByRole("button", { name: /retour/i }).first();
+	// ── Cliquer Terminer (→ Review) ───────────────────────────────────────
+	await cliquerTerminer();
+	await shot(newPage, 22, "review");
+
+	// ── Cliquer Retour (→ retour à l'évaluation) ─────────────────────────
+	const retourBtn = newPage.getByRole("button", { name: "Retour" });
 	await retourBtn.waitFor({ timeout: 10_000 });
 	await retourBtn.click();
 	await newPage.waitForLoadState("networkidle");
-	await newPage.waitForFunction(() =>
-		document.getAnimations().every((a) => a.playState !== "running"),
-	);
-	await ss("retour-clique"); // 22
+	await newPage.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+	await shot(newPage, 23, "retour-evaluation");
 
-	// 23. Cocher la 2ème réponse
-	await cocher(2);
-	await ss("reponse2-cochee-apres-retour"); // 23
+	// ── Cocher la 2ème réponse (sur la question courante après retour) ────
+	await cocherReponse(1);
+	await shot(newPage, 24, "reponse-2-cochee-apres-retour");
 
-	// 24. Cliquer sur Terminer
-	const terminerBtn2 = newPage.getByRole("button", { name: /terminer/i }).first();
-	await terminerBtn2.waitFor({ timeout: 10_000 });
-	await terminerBtn2.click();
-	await newPage.waitForLoadState("networkidle");
-	await ss("terminer2-clique"); // 24
+	// ── Cliquer Terminer (→ Review) ───────────────────────────────────────
+	await cliquerTerminer();
+	await shot(newPage, 25, "review-bis");
 
-	// 25. Cliquer sur Terminer (confirmation)
-	const terminerBtn3 = newPage.getByRole("button", { name: /terminer/i }).first();
-	await terminerBtn3.waitFor({ timeout: 10_000 });
-	await terminerBtn3.click();
-	await newPage.waitForLoadState("networkidle");
-	await ss("terminer3-clique"); // 25
+	// ── Cliquer Terminer (→ confirmation finale) ──────────────────────────
+	await cliquerTerminer();
+	await shot(newPage, 26, "evaluation-terminee");
 });

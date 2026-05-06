@@ -1,5 +1,7 @@
 const http = require("http");
-const { spawn } = require("child_process");
+const https = require("https");
+const os = require("os");
+const { spawn, exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -7,8 +9,10 @@ const PORT = 3333;
 const E2E_DIR = path.resolve(__dirname, "..");
 const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
-const GROUPS_FILE = path.join(__dirname, "groups.json");
-const SESSION_FILE = path.join(__dirname, "last-session.json");
+const DATA_DIR = path.resolve(E2E_DIR, "data");
+const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
+const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
+const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
 
 function parseEnvFile(filePath) {
 	try {
@@ -33,7 +37,280 @@ const WWW_DIR = "/home/procertif/www";
 
 const runs = new Map();
 const chatRuns = new Map();
-const chatSessions = new Map(); // runId -> CLI session_id string
+const chatHistories = new Map(); // sessionId -> messages[]
+
+const CREDENTIALS_PATH = path.join(os.homedir(), ".claude", ".credentials.json");
+const ANTHROPIC_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+
+const TOOLS = [
+	{
+		name: "Read",
+		description: "Read file contents from the filesystem, with line numbers.",
+		input_schema: {
+			type: "object",
+			properties: {
+				file_path: { type: "string", description: "Absolute path to file" },
+				offset: { type: "number", description: "Line number to start from (1-indexed)" },
+				limit: { type: "number", description: "Number of lines to read" },
+			},
+			required: ["file_path"],
+		},
+	},
+	{
+		name: "Write",
+		description: "Write content to a file (creates or overwrites).",
+		input_schema: {
+			type: "object",
+			properties: {
+				file_path: { type: "string" },
+				content: { type: "string" },
+			},
+			required: ["file_path", "content"],
+		},
+	},
+	{
+		name: "Edit",
+		description: "Replace a string in a file. Use replace_all to replace all occurrences.",
+		input_schema: {
+			type: "object",
+			properties: {
+				file_path: { type: "string" },
+				old_string: { type: "string" },
+				new_string: { type: "string" },
+				replace_all: { type: "boolean" },
+			},
+			required: ["file_path", "old_string", "new_string"],
+		},
+	},
+	{
+		name: "Bash",
+		description: "Execute a bash command and return stdout + stderr.",
+		input_schema: {
+			type: "object",
+			properties: {
+				command: { type: "string" },
+				timeout: { type: "number", description: "Timeout in milliseconds (default 30000)" },
+			},
+			required: ["command"],
+		},
+	},
+	{
+		name: "Glob",
+		description: "Find files matching a name pattern (uses find).",
+		input_schema: {
+			type: "object",
+			properties: {
+				pattern: { type: "string", description: "File name pattern, e.g. *.ts" },
+				path: { type: "string", description: "Directory to search (default: e2e_ai)" },
+			},
+			required: ["pattern"],
+		},
+	},
+	{
+		name: "LS",
+		description: "List directory contents.",
+		input_schema: {
+			type: "object",
+			properties: {
+				path: { type: "string", description: "Directory path (default: e2e_ai)" },
+			},
+			required: [],
+		},
+	},
+];
+
+async function getOAuthToken() {
+	const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf-8"));
+	const oauth = creds.claudeAiOauth;
+	if (!oauth?.accessToken) throw new Error('No OAuth credentials found. Run "claude login" first.');
+
+	if (Date.now() >= (oauth.expiresAt || 0) - 60_000) {
+		const body = Buffer.from(JSON.stringify({
+			grant_type: "refresh_token",
+			refresh_token: oauth.refreshToken,
+			client_id: ANTHROPIC_CLIENT_ID,
+		}));
+		const data = await new Promise((resolve, reject) => {
+			const req = https.request({
+				hostname: "console.anthropic.com",
+				path: "/v1/oauth/token",
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Content-Length": body.length },
+			}, (res) => {
+				let raw = "";
+				res.on("data", c => raw += c);
+				res.on("end", () => { try { resolve(JSON.parse(raw)); } catch { resolve({}); } });
+			});
+			req.on("error", reject);
+			req.write(body);
+			req.end();
+		});
+		if (data.access_token) {
+			oauth.accessToken = data.access_token;
+			oauth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+			if (data.refresh_token) oauth.refreshToken = data.refresh_token;
+			fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2));
+		}
+	}
+	return oauth.accessToken;
+}
+
+async function executeTool(name, input) {
+	try {
+		switch (name) {
+			case "Read": {
+				const content = fs.readFileSync(input.file_path, "utf-8");
+				const lines = content.split("\n");
+				const start = Math.max(0, (input.offset || 1) - 1);
+				const end = input.limit != null ? start + input.limit : lines.length;
+				return lines.slice(start, end).map((l, i) => `${start + i + 1}\t${l}`).join("\n");
+			}
+			case "Write": {
+				fs.mkdirSync(path.dirname(input.file_path), { recursive: true });
+				fs.writeFileSync(input.file_path, input.content);
+				return "File written successfully.";
+			}
+			case "Edit": {
+				let content = fs.readFileSync(input.file_path, "utf-8");
+				if (!content.includes(input.old_string)) return "Error: old_string not found in file.";
+				content = input.replace_all
+					? content.split(input.old_string).join(input.new_string)
+					: content.replace(input.old_string, input.new_string);
+				fs.writeFileSync(input.file_path, content);
+				return "Edit applied successfully.";
+			}
+			case "Bash": {
+				return new Promise((resolve) => {
+					exec(
+						input.command,
+						{ timeout: input.timeout || 30000, maxBuffer: 5 * 1024 * 1024, cwd: E2E_DIR },
+						(err, stdout, stderr) => {
+							const parts = [];
+							if (stdout) parts.push(stdout);
+							if (stderr) parts.push("STDERR:\n" + stderr);
+							if (err && !stdout && !stderr) parts.push("ERROR: " + err.message);
+							resolve(parts.join("\n").trim() || "(no output)");
+						}
+					);
+				});
+			}
+			case "Glob": {
+				return new Promise((resolve) => {
+					const cwd = input.path || E2E_DIR;
+					const pat = input.pattern.replace(/"/g, '\\"');
+					exec(`find . -name "${pat}" 2>/dev/null | sort | head -200`, { cwd, timeout: 10000 },
+						(err, stdout) => resolve(stdout.trim() || "No files found.")
+					);
+				});
+			}
+			case "LS": {
+				const dir = input.path || E2E_DIR;
+				const entries = fs.readdirSync(dir, { withFileTypes: true });
+				return entries.map(e => e.isDirectory() ? e.name + "/" : e.name).join("\n") || "(empty)";
+			}
+			default:
+				return `Unknown tool: ${name}`;
+		}
+	} catch (e) {
+		return "Error: " + e.message;
+	}
+}
+
+async function callClaudeStream(token, messages, onEvent) {
+	const body = Buffer.from(JSON.stringify({
+		model: ANTHROPIC_MODEL,
+		max_tokens: 8096,
+		system: [
+			{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
+			{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, and LS tools. Working directories: ${E2E_DIR} (e2e test suite) and ${WWW_DIR} (web server). Always use absolute paths.` },
+		],
+		tools: TOOLS,
+		messages,
+		stream: true,
+	}));
+
+	return new Promise((resolve, reject) => {
+		const req = https.request({
+			hostname: "api.anthropic.com",
+			path: "/v1/messages",
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${token}`,
+				"Content-Type": "application/json",
+				"Content-Length": body.length,
+				"anthropic-version": "2023-06-01",
+				"anthropic-beta": "oauth-2025-04-20",
+				"x-app": "cli",
+				"user-agent": "claude-cli/2.1.80 (external, cli)",
+			},
+		}, (res) => {
+			let buf = "";
+			let stopReason = "end_turn";
+			const responseContent = [];
+			let currentBlock = null;
+			let currentText = "";
+			let inputJson = "";
+
+			res.on("data", chunk => {
+				buf += chunk.toString();
+				const lines = buf.split("\n");
+				buf = lines.pop() ?? "";
+				for (const line of lines) {
+					if (!line.startsWith("data: ")) continue;
+					const data = line.slice(6).trim();
+					if (data === "[DONE]") continue;
+					let ev;
+					try { ev = JSON.parse(data); } catch { continue; }
+
+					if (ev.type === "content_block_start") {
+						currentBlock = ev.content_block;
+						currentText = "";
+						inputJson = "";
+					}
+
+					if (ev.type === "content_block_delta") {
+						if (ev.delta.type === "text_delta") {
+							currentText += ev.delta.text;
+							onEvent({ type: "delta", text: ev.delta.text });
+						}
+						if (ev.delta.type === "input_json_delta") {
+							inputJson += ev.delta.partial_json;
+						}
+					}
+
+					if (ev.type === "content_block_stop" && currentBlock) {
+						if (currentBlock.type === "text") {
+							responseContent.push({ type: "text", text: currentText });
+						}
+						if (currentBlock.type === "tool_use") {
+							let input = {};
+							try { input = JSON.parse(inputJson || "{}"); } catch {}
+							responseContent.push({ type: "tool_use", id: currentBlock.id, name: currentBlock.name, input });
+							onEvent({ type: "tool_start", name: currentBlock.name, id: currentBlock.id, input });
+						}
+						currentBlock = null;
+					}
+
+					if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+						stopReason = ev.delta.stop_reason;
+					}
+
+					if (ev.type === "error") {
+						reject(new Error(ev.error?.message || "Anthropic API error"));
+					}
+				}
+			});
+
+			res.on("end", () => resolve({ stopReason, content: responseContent }));
+			res.on("error", reject);
+		});
+
+		req.on("error", reject);
+		req.write(body);
+		req.end();
+	});
+}
 
 function startChatRun(message, sessionId) {
 	const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -47,73 +324,31 @@ function startChatRun(message, sessionId) {
 	};
 
 	(async () => {
-		const args = [
-			"--print",
-			"--output-format", "stream-json",
-			"--verbose",
-			"--include-partial-messages",
-			"--dangerously-skip-permissions",
-		];
+		const history = (sessionId && chatHistories.get(sessionId)) || [];
+		history.push({ role: "user", content: message });
 
-		// Resume previous CLI session if one exists
-		const cliSessionId = sessionId && chatSessions.get(sessionId);
-		if (cliSessionId) {
-			chatSessions.delete(sessionId);
-			args.push("--resume", cliSessionId);
+		const token = await getOAuthToken();
+		let continueLoop = true;
+
+		while (continueLoop) {
+			const { stopReason, content } = await callClaudeStream(token, history, pushEvent);
+			history.push({ role: "assistant", content });
+
+			if (stopReason === "tool_use") {
+				const toolResults = [];
+				for (const block of content) {
+					if (block.type !== "tool_use") continue;
+					const result = await executeTool(block.name, block.input);
+					toolResults.push({ type: "tool_result", tool_use_id: block.id, content: String(result) });
+				}
+				history.push({ role: "user", content: toolResults });
+			} else {
+				continueLoop = false;
+			}
 		}
 
-		const proc = spawn("claude", args, {
-			stdio: ["pipe", "pipe", "pipe"],
-			env: { ...process.env },
-			cwd: E2E_DIR,
-		});
-
-		proc.stdin.write(message);
-		proc.stdin.end();
-		proc.stderr.resume(); // drain to prevent blocking
-
-		let buf = "";
-		let newCliSessionId = null;
-
-		proc.stdout.on("data", (chunk) => {
-			buf += chunk.toString();
-			const lines = buf.split("\n");
-			buf = lines.pop() ?? "";
-			for (const line of lines) parseLine(line);
-		});
-
-		proc.stdout.on("close", () => {
-			if (buf.trim()) parseLine(buf.trim());
-		});
-
-		function parseLine(line) {
-			if (!line.trim()) return;
-			try {
-				const e = JSON.parse(line);
-
-				if (e.type === "stream_event") {
-					const ev = e.event;
-					if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta") {
-						pushEvent({ type: "delta", text: ev.delta.text });
-					}
-					if (ev?.type === "content_block_start" && ev.content_block?.type === "tool_use") {
-						pushEvent({ type: "tool_start", name: ev.content_block.name });
-					}
-				}
-
-				if (e.type === "result") {
-					newCliSessionId = e.session_id || null;
-				}
-			} catch { /* skip malformed lines */ }
-		}
-
-		await new Promise((resolve, reject) => {
-			proc.on("close", (code) => (code === 0 || code === null ? resolve() : reject(new Error(`CLI exit ${code}`))));
-			proc.on("error", reject);
-		});
-
-		// Store CLI session ID so next message can resume
-		if (newCliSessionId) chatSessions.set(runId, newCliSessionId);
+		chatHistories.set(runId, history);
+		if (chatHistories.size > 50) chatHistories.delete([...chatHistories.keys()][0]);
 
 		run.status = "done";
 		pushEvent({ type: "done", status: "done", sessionId: runId });
@@ -132,6 +367,7 @@ function startChatRun(message, sessionId) {
 
 function listTests() {
 	if (!fs.existsSync(TESTS_DIR)) return [];
+	const history = loadRunHistory();
 	return fs
 		.readdirSync(TESTS_DIR)
 		.filter((f) => f.endsWith(".spec.ts"))
@@ -151,6 +387,7 @@ function listTests() {
 					typeLabel,
 					mode,
 					name: `Cas ${casNum} - ${typeLabel}`,
+					estimatedMs: estimatedMs(history, filename),
 				};
 			}
 			const baseName = filename.replace(".spec.ts", "");
@@ -163,6 +400,7 @@ function listTests() {
 				typeLabel: baseName,
 				mode: "noai",
 				name: baseName.replace(/-/g, " "),
+				estimatedMs: estimatedMs(history, filename),
 			};
 		})
 		.sort((a, b) => a.order - b.order || a.filename.localeCompare(b.filename));
@@ -214,6 +452,24 @@ function saveGroups(data) {
 	fs.writeFileSync(GROUPS_FILE, JSON.stringify(data, null, 2));
 }
 
+function loadRunHistory() {
+	try { return JSON.parse(fs.readFileSync(RUN_HISTORY_FILE, "utf-8")); } catch { return {}; }
+}
+
+function recordRunDuration(filename, durationMs) {
+	const history = loadRunHistory();
+	if (!history[filename]) history[filename] = [];
+	history[filename].push(Math.round(durationMs));
+	if (history[filename].length > 5) history[filename] = history[filename].slice(-5);
+	fs.writeFileSync(RUN_HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
+function estimatedMs(history, filename) {
+	const runs = history[filename];
+	if (!runs?.length) return null;
+	return Math.round(runs.reduce((a, b) => a + b, 0) / runs.length);
+}
+
 function readBody(req) {
 	return new Promise((resolve, reject) => {
 		let body = "";
@@ -230,6 +486,7 @@ function startRun(filename) {
 	const runId =
 		Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	const run = { lines: [], status: "running", clients: new Set() };
+	const startTime = Date.now();
 	runs.set(runId, run);
 
 	const proc = spawn(
@@ -254,13 +511,14 @@ function startRun(filename) {
 
 	proc.on("close", (code) => {
 		run.status = code === 0 ? "passed" : "failed";
-
-			const msg = `data: ${JSON.stringify({ done: true, status: run.status })}\n\n`;
-			for (const res of run.clients) {
-				res.write(msg);
-				res.end();
-			}
-			run.clients.clear();
+		recordRunDuration(filename, Date.now() - startTime);
+		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
+		const msg = `data: ${JSON.stringify({ done: true, status: run.status, estimatedMs: newEstimatedMs })}\n\n`;
+		for (const res of run.clients) {
+			res.write(msg);
+			res.end();
+		}
+		run.clients.clear();
 	});
 
 	return runId;

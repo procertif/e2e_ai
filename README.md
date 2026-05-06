@@ -119,7 +119,7 @@ Exemples : `1-cas1-quiz-noai.spec.ts`, `2-cas1-jury-noai.spec.ts`
 
 
 ## Utilisation du chatbot ia
-### Première utilisation
+### Première utilisation CLI
 ```
 Il y avait 5 fichiers de test, cas1 à 4 quiz et cas1 jury.
 J'ai supprimé le cas4 quiz et je lui ai demandé d'écrire le cas 4 avec ce prompt.
