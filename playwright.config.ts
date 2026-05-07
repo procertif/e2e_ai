@@ -6,7 +6,7 @@ export default defineConfig({
 	retries: 0,
 	reporter: "line",
 	use: {
-		baseURL: "https://app.procertif.dev",
+		baseURL: process.env.BASE_URL || "https://app.procertif.dev",
 		trace: "off",
 		screenshot: "off",
 		ignoreHTTPSErrors: true,

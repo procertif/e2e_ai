@@ -5,7 +5,6 @@ const { spawn, exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = 3333;
 const E2E_DIR = path.resolve(__dirname, "..");
 const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
@@ -31,17 +30,17 @@ function parseEnvFile(filePath) {
 }
 
 const envLocal = parseEnvFile(path.join(E2E_DIR, ".env"));
-const OPENAI_API_KEY = envLocal.OPENAI_API_KEY || process.env.OPENAI_API_KEY || "";
 
-const WWW_DIR = "/home/procertif/www";
+const PORT = Number(envLocal.PORT || process.env.PORT || 3333);
+const ANTHROPIC_CLIENT_ID = envLocal.ANTHROPIC_CLIENT_ID || process.env.ANTHROPIC_CLIENT_ID || "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+
 
 const runs = new Map();
 const chatRuns = new Map();
 const chatHistories = new Map(); // sessionId -> messages[]
 
 const CREDENTIALS_PATH = path.join(os.homedir(), ".claude", ".credentials.json");
-const ANTHROPIC_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
 const TOOLS = [
 	{
@@ -102,7 +101,7 @@ const TOOLS = [
 			type: "object",
 			properties: {
 				pattern: { type: "string", description: "File name pattern, e.g. *.ts" },
-				path: { type: "string", description: "Directory to search (default: e2e_ai)" },
+				path: { type: "string", description: "Directory to search (default: current e2e dir)" },
 			},
 			required: ["pattern"],
 		},
@@ -113,9 +112,32 @@ const TOOLS = [
 		input_schema: {
 			type: "object",
 			properties: {
-				path: { type: "string", description: "Directory path (default: e2e_ai)" },
+				path: { type: "string", description: "Directory path (default: current e2e dir)" },
 			},
 			required: [],
+		},
+	},
+	{
+		name: "WebFetch",
+		description: "Fetch the content of a URL and return it as plain text (HTML tags stripped).",
+		input_schema: {
+			type: "object",
+			properties: {
+				url: { type: "string", description: "The URL to fetch" },
+				max_length: { type: "number", description: "Max characters to return (default 20000)" },
+			},
+			required: ["url"],
+		},
+	},
+	{
+		name: "ReadImage",
+		description: "Read an image file and return it as base64 for visual inspection.",
+		input_schema: {
+			type: "object",
+			properties: {
+				file_path: { type: "string", description: "Absolute path to the image file (png, jpg, gif, webp)" },
+			},
+			required: ["file_path"],
 		},
 	},
 ];
@@ -209,6 +231,42 @@ async function executeTool(name, input) {
 				const entries = fs.readdirSync(dir, { withFileTypes: true });
 				return entries.map(e => e.isDirectory() ? e.name + "/" : e.name).join("\n") || "(empty)";
 			}
+			case "WebFetch": {
+				return new Promise((resolve) => {
+					const maxLen = input.max_length || 20000;
+					const lib = input.url.startsWith("https") ? https : http;
+					const doRequest = (url, redirects = 0) => {
+						if (redirects > 5) return resolve("Error: too many redirects");
+						lib.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, (res) => {
+							if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+								return doRequest(res.headers.location, redirects + 1);
+							}
+							let body = "";
+							res.setEncoding("utf-8");
+							res.on("data", (chunk) => { if (body.length < maxLen * 2) body += chunk; });
+							res.on("end", () => {
+								body = body
+									.replace(/<script[\s\S]*?<\/script>/gi, "")
+									.replace(/<style[\s\S]*?<\/style>/gi, "")
+									.replace(/<[^>]+>/g, " ")
+									.replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+									.replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+									.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+								resolve(body.slice(0, maxLen));
+							});
+							res.on("error", (e) => resolve("Error: " + e.message));
+						}).on("error", (e) => resolve("Error: " + e.message));
+					};
+					doRequest(input.url);
+				});
+			}
+			case "ReadImage": {
+				const ext = path.extname(input.file_path).toLowerCase().slice(1);
+				const mediaTypes = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+				const media_type = mediaTypes[ext] || "image/png";
+				const data = fs.readFileSync(input.file_path).toString("base64");
+				return { _isImage: true, media_type, data };
+			}
 			default:
 				return `Unknown tool: ${name}`;
 		}
@@ -217,14 +275,18 @@ async function executeTool(name, input) {
 	}
 }
 
-async function callClaudeStream(token, messages, onEvent) {
+async function callClaudeStream(token, messages, onEvent, instructions) {
+	const systemBlocks = [
+		{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
+		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}.` },
+	];
+	if (instructions && instructions.trim()) {
+		systemBlocks.push({ type: "text", text: instructions.trim() });
+	}
 	const body = Buffer.from(JSON.stringify({
 		model: ANTHROPIC_MODEL,
 		max_tokens: 8096,
-		system: [
-			{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
-			{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, and LS tools. Working directories: ${E2E_DIR} (e2e test suite) and ${WWW_DIR} (web server). Always use absolute paths.` },
-		],
+		system: systemBlocks,
 		tools: TOOLS,
 		messages,
 		stream: true,
@@ -312,7 +374,7 @@ async function callClaudeStream(token, messages, onEvent) {
 	});
 }
 
-function startChatRun(message, sessionId) {
+function startChatRun(message, images, sessionId, instructions) {
 	const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	const run = { events: [], status: "running", clients: new Set() };
 	chatRuns.set(runId, run);
@@ -325,13 +387,19 @@ function startChatRun(message, sessionId) {
 
 	(async () => {
 		const history = (sessionId && chatHistories.get(sessionId)) || [];
-		history.push({ role: "user", content: message });
+		const userContent = images && images.length > 0
+			? [
+				...images.map(img => ({ type: "image", source: { type: "base64", media_type: img.media_type, data: img.data } })),
+				{ type: "text", text: message || " " },
+			]
+			: message;
+		history.push({ role: "user", content: userContent });
 
 		const token = await getOAuthToken();
 		let continueLoop = true;
 
 		while (continueLoop) {
-			const { stopReason, content } = await callClaudeStream(token, history, pushEvent);
+			const { stopReason, content } = await callClaudeStream(token, history, pushEvent, instructions);
 			history.push({ role: "assistant", content });
 
 			if (stopReason === "tool_use") {
@@ -339,7 +407,10 @@ function startChatRun(message, sessionId) {
 				for (const block of content) {
 					if (block.type !== "tool_use") continue;
 					const result = await executeTool(block.name, block.input);
-					toolResults.push({ type: "tool_result", tool_use_id: block.id, content: String(result) });
+					const toolResult = result?._isImage
+						? { type: "tool_result", tool_use_id: block.id, content: [{ type: "image", source: { type: "base64", media_type: result.media_type, data: result.data } }] }
+						: { type: "tool_result", tool_use_id: block.id, content: String(result) };
+					toolResults.push(toolResult);
 				}
 				history.push({ role: "user", content: toolResults });
 			} else {
@@ -494,7 +565,7 @@ function startRun(filename) {
 		["playwright", "test", `tests/${filename}`, "--reporter=line", "--project=chromium", "--headed"],
 		{
 			cwd: E2E_DIR,
-			env: { ...process.env, OPENAI_API_KEY, OPEN_AI_KEY: OPENAI_API_KEY },
+			env: { ...process.env, ...envLocal },
 		},
 	);
 
@@ -511,7 +582,7 @@ function startRun(filename) {
 
 	proc.on("close", (code) => {
 		run.status = code === 0 ? "passed" : "failed";
-		recordRunDuration(filename, Date.now() - startTime);
+		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
 		const msg = `data: ${JSON.stringify({ done: true, status: run.status, estimatedMs: newEstimatedMs })}\n\n`;
 		for (const res of run.clients) {
@@ -678,9 +749,6 @@ http
 					if (!grp) { res.writeHead(404); res.end("Not found"); return; }
 					if (body.name !== undefined) grp.name = String(body.name).trim();
 					if (Array.isArray(body.tests)) {
-						for (const g of grps) {
-							if (g.id !== id) g.tests = g.tests.filter((t) => !body.tests.includes(t));
-						}
 						grp.tests = body.tests;
 					}
 					saveGroups(grps);
@@ -782,18 +850,41 @@ http
 		if (req.method === "POST" && pathname === "/api/chat") {
 			try {
 				const body = await readBody(req);
-				const { message, sessionId } = body;
-				if (!message || typeof message !== "string" || !message.trim()) {
+				const { message, images, sessionId, instructions } = body;
+				const hasImages = Array.isArray(images) && images.length > 0;
+				if (!hasImages && (!message || typeof message !== "string" || !message.trim())) {
 					res.writeHead(400);
 					res.end("Message required");
 					return;
 				}
-				const runId = startChatRun(message.trim(), sessionId || null);
+				const runId = startChatRun((message || "").trim(), hasImages ? images : null, sessionId || null, instructions || null);
 				res.writeHead(200, { "Content-Type": "application/json" });
 				res.end(JSON.stringify({ runId }));
 			} catch {
 				res.writeHead(400);
 				res.end("Bad request");
+			}
+			return;
+		}
+
+		if (req.method === "POST" && pathname === "/api/chat-save") {
+			try {
+				const body = await readBody(req);
+				const { filename, messages } = body;
+				if (!filename || !Array.isArray(messages)) {
+					res.writeHead(400);
+					res.end("Invalid payload");
+					return;
+				}
+				const safe = path.basename(filename).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+				const dest = path.join(E2E_DIR, "tests", "prompt", safe);
+				fs.mkdirSync(path.dirname(dest), { recursive: true });
+				fs.writeFileSync(dest, JSON.stringify(messages, null, 2), "utf8");
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ path: dest }));
+			} catch (err) {
+				res.writeHead(500);
+				res.end(err.message);
 			}
 			return;
 		}

@@ -35,7 +35,7 @@ test("Cas 1 - Flow jury", async ({ page }) => {
 	const otpInput = page.locator("#otp_token, .otp_token").first();
 	await otpInput.waitFor({ state: "visible", timeout: 60_000 });
 	await otpInput.click();
-	await otpInput.pressSequentially("444444", { delay: 50 });
+	await otpInput.pressSequentially(process.env.TEST_OTP || "444444", { delay: 50 });
 	const validerBtn = page.getByRole("button", { name: /valider/i });
 	await validerBtn.waitFor({ state: "visible", timeout: 30_000 });
 	await shot(page, 3, "otp-saisi");

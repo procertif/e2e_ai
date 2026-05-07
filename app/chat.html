@@ -55,9 +55,12 @@
       <div class="chat-header">
         <div class="chat-header-info">
           <h1 class="chat-title">Chat Claude</h1>
-          <span class="chat-scope">Accès : /home/procertif/e2e_ai &amp; /home/procertif/www</span>
+          <span class="chat-scope">Accès complet au système de fichiers</span>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" id="btn-new-chat">Nouvelle conversation</button>
+        <div class="chat-header-actions">
+          <button class="btn btn-sm btn-outline-secondary" id="btn-save-chat">Sauvegarder</button>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-new-chat">Nouvelle conversation</button>
+        </div>
       </div>
 
       <!-- Messages -->
@@ -68,13 +71,36 @@
               <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
             </svg>
           </div>
-          <p>Bonjour ! Je peux lire et modifier les fichiers dans <code>e2e_ai</code> et <code>www</code>. Que puis-je faire pour vous ?</p>
+          <p>Bonjour ! J'ai accès à l'ensemble du système de fichiers. Que puis-je faire pour vous ?</p>
+        </div>
+      </div>
+
+      <!-- Instructions globales -->
+      <div class="chat-instructions-bar" id="instructions-bar">
+        <button class="instructions-toggle" id="instructions-toggle" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" id="instructions-chevron">
+            <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+          </svg>
+          Instructions globales
+          <span class="instructions-badge" id="instructions-badge" style="display:none"></span>
+        </button>
+        <div class="instructions-body" id="instructions-body" style="display:none">
+          <textarea id="instructions-input" class="instructions-textarea" placeholder="Ex : Toujours répondre en français. Suivre les conventions des tests existants. Ne jamais supprimer de fichier sans confirmation." rows="3"></textarea>
+          <p class="instructions-hint">Ces instructions sont ajoutées au system prompt à chaque message.</p>
         </div>
       </div>
 
       <!-- Input -->
       <div class="chat-input-area">
+        <input type="file" id="image-input" accept="image/*" multiple style="display:none" />
+        <div class="image-previews" id="image-previews" style="display:none;"></div>
         <div class="chat-input-wrap" id="chat-input-wrap">
+          <button class="chat-attach-btn" id="btn-attach" title="Joindre une image">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/>
+              <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z"/>
+            </svg>
+          </button>
           <textarea
             id="chat-input"
             class="chat-input"
@@ -87,9 +113,31 @@
             </svg>
           </button>
         </div>
-        <p class="chat-hint">Entrée pour envoyer &middot; Shift+Entrée pour nouvelle ligne</p>
+        <p class="chat-hint">Entrée pour envoyer &middot; Shift+Entrée pour nouvelle ligne &middot; Coller ou glisser une image</p>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ── Modale sauvegarde ── -->
+<div class="save-modal-backdrop" id="save-modal-backdrop">
+  <div class="save-modal" id="save-modal" role="dialog" aria-modal="true" aria-labelledby="save-modal-title">
+    <div class="save-modal-header">
+      <span class="save-modal-title" id="save-modal-title">Sauvegarder la conversation</span>
+      <button class="save-modal-close" id="save-modal-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div class="save-modal-body" id="save-modal-body">
+      <label class="save-modal-label" for="save-filename">Nom du fichier</label>
+      <div class="save-filename-wrap">
+        <input type="text" id="save-filename" class="save-filename-input" placeholder="ex : test-cas1-analyse" autocomplete="off" spellcheck="false" />
+        <span class="save-filename-ext">.json</span>
+      </div>
+      <p class="save-modal-error" id="save-modal-error" style="display:none"></p>
+    </div>
+    <div class="save-modal-footer">
+      <button class="btn btn-sm btn-outline-secondary" id="save-modal-cancel">Annuler</button>
+      <button class="btn btn-sm btn-primary" id="save-modal-confirm">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -99,18 +147,58 @@
 
   let sessionId = null;
   let isStreaming = false;
-  let chatMessages = []; // { role, content, tools? }
-  let currentTools = [];
 
-  const messagesEl = document.getElementById('chat-messages');
-  const inputEl    = document.getElementById('chat-input');
-  const sendBtn    = document.getElementById('btn-send');
-  const inputWrap  = document.getElementById('chat-input-wrap');
-  const newChatBtn = document.getElementById('btn-new-chat');
+  // ── Instructions globales ──
+  const instructionsToggle = document.getElementById('instructions-toggle');
+  const instructionsBody   = document.getElementById('instructions-body');
+  const instructionsInput  = document.getElementById('instructions-input');
+  const instructionsBadge  = document.getElementById('instructions-badge');
+  const instructionsChevron = document.getElementById('instructions-chevron');
+
+  const DEFAULT_INSTRUCTIONS = "Toujours prendre un screenshot entre chaque action dans les tests.";
+
+  function loadInstructions() {
+    const saved = localStorage.getItem('procertif_instructions');
+    instructionsInput.value = saved !== null ? saved : DEFAULT_INSTRUCTIONS;
+    updateInstructionsBadge();
+  }
+
+  function updateInstructionsBadge() {
+    const val = instructionsInput.value.trim();
+    if (val) {
+      instructionsBadge.textContent = 'actives';
+      instructionsBadge.style.display = 'inline';
+    } else {
+      instructionsBadge.style.display = 'none';
+    }
+  }
+
+  instructionsToggle.addEventListener('click', () => {
+    const open = instructionsBody.style.display !== 'none';
+    instructionsBody.style.display = open ? 'none' : 'block';
+    instructionsChevron.style.transform = open ? '' : 'rotate(180deg)';
+  });
+
+  instructionsInput.addEventListener('input', () => {
+    localStorage.setItem('procertif_instructions', instructionsInput.value);
+    updateInstructionsBadge();
+  });
+  let chatMessages = []; // { role, content, images?, tools? }
+  let currentTools = [];
+  let pendingImages = []; // { data, media_type, preview }
+
+  const messagesEl  = document.getElementById('chat-messages');
+  const inputEl     = document.getElementById('chat-input');
+  const sendBtn     = document.getElementById('btn-send');
+  const inputWrap   = document.getElementById('chat-input-wrap');
+  const newChatBtn  = document.getElementById('btn-new-chat');
+  const imageInput  = document.getElementById('image-input');
+  const attachBtn   = document.getElementById('btn-attach');
+  const previewsEl  = document.getElementById('image-previews');
 
   // ── Auto-resize textarea ──
   inputEl.addEventListener('input', () => {
-    sendBtn.disabled = !inputEl.value.trim() || isStreaming;
+    updateSendBtn();
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px';
   });
@@ -124,12 +212,143 @@
 
   sendBtn.addEventListener('click', () => { if (!isStreaming) sendMessage(); });
 
+  // ── Image attachment ──
+  attachBtn.addEventListener('click', () => imageInput.click());
+
+  imageInput.addEventListener('change', () => {
+    addFiles(imageInput.files);
+    imageInput.value = '';
+  });
+
+  // Drag & drop
+  inputWrap.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    inputWrap.classList.add('drag-over');
+  });
+  inputWrap.addEventListener('dragleave', () => inputWrap.classList.remove('drag-over'));
+  inputWrap.addEventListener('drop', (e) => {
+    e.preventDefault();
+    inputWrap.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+  });
+
+  // Paste
+  inputEl.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItems = [...items].filter(i => i.type.startsWith('image/'));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (file) readImageFile(file);
+    }
+  });
+
+  function addFiles(fileList) {
+    for (const file of fileList) {
+      if (file.type.startsWith('image/')) readImageFile(file);
+    }
+  }
+
+  function readImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const [prefix, data] = dataUrl.split(',');
+      const media_type = prefix.match(/:(.*?);/)[1];
+      pendingImages.push({ data, media_type, preview: dataUrl, name: file.name });
+      renderImagePreviews();
+      updateSendBtn();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderImagePreviews() {
+    if (pendingImages.length === 0) {
+      previewsEl.style.display = 'none';
+      previewsEl.innerHTML = '';
+      return;
+    }
+    previewsEl.style.display = 'flex';
+    previewsEl.innerHTML = pendingImages.map((img, i) => `
+      <div class="image-preview-item">
+        <img src="${img.preview}" alt="${escHtml(img.name || 'image')}" />
+        <button class="image-preview-remove" data-idx="${i}" title="Retirer">×</button>
+      </div>`).join('');
+    for (const btn of previewsEl.querySelectorAll('.image-preview-remove')) {
+      btn.addEventListener('click', () => {
+        pendingImages.splice(Number(btn.dataset.idx), 1);
+        renderImagePreviews();
+        updateSendBtn();
+      });
+    }
+  }
+
+  function updateSendBtn() {
+    sendBtn.disabled = isStreaming || (!inputEl.value.trim() && pendingImages.length === 0);
+  }
+
   newChatBtn.addEventListener('click', resetChat);
+
+  // ── Modale sauvegarde ──
+  const saveModal         = document.getElementById('save-modal-backdrop');
+  const saveFilenameInput = document.getElementById('save-filename');
+  const saveErrorEl       = document.getElementById('save-modal-error');
+  const saveConfirmBtn    = document.getElementById('save-modal-confirm');
+
+  function openSaveModal() {
+    saveFilenameInput.value = '';
+    saveErrorEl.style.display = 'none';
+    saveConfirmBtn.disabled = false;
+    saveConfirmBtn.textContent = 'Enregistrer';
+    saveModal.style.display = 'flex';
+    requestAnimationFrame(() => saveModal.classList.add('is-open'));
+    saveFilenameInput.focus();
+  }
+
+  function closeSaveModal() {
+    saveModal.classList.remove('is-open');
+    saveModal.addEventListener('transitionend', () => { saveModal.style.display = 'none'; }, { once: true });
+  }
+
+  async function doSave() {
+    const name = saveFilenameInput.value.trim();
+    if (!name) { saveFilenameInput.focus(); return; }
+    const filename = name.replace(/[^a-zA-Z0-9_\-]/g, '_') + '.json';
+    saveConfirmBtn.disabled = true;
+    saveConfirmBtn.textContent = 'Enregistrement…';
+    saveErrorEl.style.display = 'none';
+    try {
+      const res = await fetch('/api/chat-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, messages: chatMessages }),
+      });
+      if (!res.ok) throw new Error('Erreur serveur ' + res.status);
+      closeSaveModal();
+    } catch (err) {
+      saveErrorEl.textContent = err.message;
+      saveErrorEl.style.display = 'block';
+      saveConfirmBtn.disabled = false;
+      saveConfirmBtn.textContent = 'Enregistrer';
+    }
+  }
+
+  const saveChatBtn = document.getElementById('btn-save-chat');
+  saveChatBtn.addEventListener('click', () => { if (chatMessages.length) openSaveModal(); });
+  document.getElementById('save-modal-cancel').addEventListener('click', closeSaveModal);
+  document.getElementById('save-modal-close').addEventListener('click', closeSaveModal);
+  saveModal.addEventListener('click', (e) => { if (e.target === saveModal) closeSaveModal(); });
+  saveConfirmBtn.addEventListener('click', doSave);
+  saveFilenameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
 
   function resetChat() {
     sessionId = null;
     chatMessages = [];
     currentTools = [];
+    pendingImages = [];
+    renderImagePreviews();
     localStorage.removeItem('procertif_chat');
     messagesEl.innerHTML = `
       <div class="chat-welcome" id="chat-welcome">
@@ -138,7 +357,7 @@
             <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
           </svg>
         </div>
-        <p>Nouvelle conversation. Je peux lire et modifier les fichiers dans <code>e2e_ai</code> et <code>www</code>.</p>
+        <p>Nouvelle conversation. J'ai accès à l'ensemble du système de fichiers.</p>
       </div>`;
   }
 
@@ -148,10 +367,7 @@
 
   function renderSavedMessage(msg) {
     if (msg.role === 'user') {
-      const div = document.createElement('div');
-      div.className = 'chat-message chat-message--user';
-      div.innerHTML = `<div class="msg-bubble msg-bubble--user">${escHtml(msg.content)}</div>`;
-      messagesEl.appendChild(div);
+      appendUserMessage(msg.content, msg.images || []);
     } else {
       const div = appendAssistantBubble();
       for (const t of (msg.tools || [])) addToolPill(div, t.name, t.input);
@@ -182,11 +398,19 @@
     if (w) w.remove();
   }
 
-  function appendUserMessage(text) {
+  function appendUserMessage(text, images) {
     removeWelcome();
     const div = document.createElement('div');
     div.className = 'chat-message chat-message--user';
-    div.innerHTML = `<div class="msg-bubble msg-bubble--user">${escHtml(text)}</div>`;
+    let inner = '<div class="msg-bubble msg-bubble--user">';
+    if (images && images.length > 0) {
+      inner += '<div class="msg-images">';
+      for (const img of images) inner += `<img src="data:${img.media_type};base64,${img.data}" class="msg-image" />`;
+      inner += '</div>';
+    }
+    if (text) inner += escHtml(text);
+    inner += '</div>';
+    div.innerHTML = inner;
     messagesEl.appendChild(div);
     scrollBottom();
   }
@@ -246,12 +470,14 @@
 
   function formatToolLabel(name, input) {
     const n = name.toLowerCase();
-    if (n === 'read' && input?.file_path)  return '📄 ' + shortPath(input.file_path);
-    if (n === 'write' && input?.file_path) return '✏️ ' + shortPath(input.file_path);
-    if (n === 'edit' && input?.file_path)  return '✏️ ' + shortPath(input.file_path);
-    if (n === 'bash' && input?.command)    return '$ ' + input.command.slice(0, 48) + (input.command.length > 48 ? '…' : '');
-    if (input?.path)                       return name + ': ' + shortPath(input.path);
-    if (input?.query || input?.pattern)    return '🔍 ' + (input.query || input.pattern).slice(0, 40);
+    if (n === 'read' && input?.file_path)      return '📄 ' + shortPath(input.file_path);
+    if (n === 'readimage' && input?.file_path) return '🖼 ' + shortPath(input.file_path);
+    if (n === 'webfetch' && input?.url)        return '🌐 ' + input.url.slice(0, 50) + (input.url.length > 50 ? '…' : '');
+    if (n === 'write' && input?.file_path)     return '✏️ ' + shortPath(input.file_path);
+    if (n === 'edit' && input?.file_path)      return '✏️ ' + shortPath(input.file_path);
+    if (n === 'bash' && input?.command)        return '$ ' + input.command.slice(0, 48) + (input.command.length > 48 ? '…' : '');
+    if (input?.path)                           return name + ': ' + shortPath(input.path);
+    if (input?.query || input?.pattern)        return '🔍 ' + (input.query || input.pattern).slice(0, 40);
     return name;
   }
 
@@ -261,10 +487,12 @@
 
   function toolPillClass(name) {
     const n = name.toLowerCase();
-    if (n === 'read')  return 'read';
-    if (n === 'write') return 'write';
-    if (n === 'edit')  return 'edit';
-    if (n === 'bash')  return 'bash';
+    if (n === 'read')      return 'read';
+    if (n === 'readimage') return 'image';
+    if (n === 'webfetch')  return 'web';
+    if (n === 'write')     return 'write';
+    if (n === 'edit')      return 'edit';
+    if (n === 'bash')      return 'bash';
     return 'search';
   }
 
@@ -275,19 +503,27 @@
   function setStreaming(val) {
     isStreaming = val;
     inputWrap.classList.toggle('is-streaming', val);
-    sendBtn.disabled = val || !inputEl.value.trim();
+    updateSendBtn();
   }
 
   async function sendMessage() {
     const text = inputEl.value.trim();
-    if (!text || isStreaming) return;
+    if ((!text && pendingImages.length === 0) || isStreaming) return;
+
+    const imagesToSend = [...pendingImages];
+    pendingImages = [];
+    renderImagePreviews();
 
     setStreaming(true);
     inputEl.value = '';
     inputEl.style.height = 'auto';
 
-    appendUserMessage(text);
-    chatMessages.push({ role: 'user', content: text });
+    appendUserMessage(text, imagesToSend);
+    chatMessages.push({
+      role: 'user',
+      content: text,
+      images: imagesToSend.length > 0 ? imagesToSend.map(({ data, media_type }) => ({ data, media_type })) : undefined,
+    });
     currentTools = [];
     const thinkingEl = appendThinking();
 
@@ -295,7 +531,12 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId }),
+        body: JSON.stringify({
+          message: text,
+          images: imagesToSend.length > 0 ? imagesToSend.map(({ data, media_type }) => ({ data, media_type })) : null,
+          sessionId,
+          instructions: instructionsInput.value.trim() || null,
+        }),
       });
 
       if (!res.ok) throw new Error('Erreur serveur ' + res.status);
@@ -357,6 +598,7 @@
   }
 
   restoreChatState();
+  loadInstructions();
   inputEl.focus();
 </script>
 </body>

@@ -636,8 +636,8 @@
       fetch('/api/tests').then(r => r.json()),
       fetch('/api/groups').then(r => r.json()),
     ]);
-    //allTests = [...tests];
-    allTests = [...tests, ...generateFakeTests(100)];
+    allTests = [...tests];
+    //allTests = [...tests, ...generateFakeTests(100)];
     allGroups = grps;
 
     const savedQueue = JSON.parse(localStorage.getItem('e2e_queue') || '[]');

@@ -103,7 +103,7 @@
 <div id="group-picker-modal" class="results-overlay" style="display:none">
   <div class="results-dialog group-picker-dialog">
     <div class="results-dialog-header">
-      <h2 class="results-title">Assigner à un groupe</h2>
+      <h2 class="results-title">Assigner à des groupes</h2>
       <button class="results-close-btn" id="group-picker-close">×</button>
     </div>
     <div class="results-dialog-body group-picker-body" id="group-picker-list"></div>
@@ -222,8 +222,8 @@
     return map[type] || 'badge-quiz';
   }
 
-  function getTestGroup(filename) {
-    return groups.find(g => g.tests.includes(filename)) || null;
+  function getTestGroups(filename) {
+    return groups.filter(g => g.tests.includes(filename));
   }
 
   // ── Render tests list ──
@@ -241,19 +241,34 @@
       filtered.length !== allTests.length ? `${filtered.length}/${allTests.length}` : `${allTests.length}`;
 
     list.innerHTML = filtered.map(t => {
-      const grp = getTestGroup(t.filename);
-      const grpIdx = grp ? groups.findIndex(g => g.id === grp.id) : -1;
-      const col = grp ? groupColor(grpIdx) : null;
-
+      const testGroups = getTestGroups(t.filename);
+      let btnLabel, btnStyle, extraClass;
+      if (testGroups.length === 0) {
+        btnLabel = '— Assigner —';
+        btnStyle = '';
+        extraClass = '';
+      } else if (testGroups.length === 1) {
+        const col = groupColor(groups.findIndex(g => g.id === testGroups[0].id));
+        btnLabel = escHtml(testGroups[0].name);
+        btnStyle = `background-color:${col.bg};color:${col.text};border-color:${col.border};`;
+        extraClass = ' has-group';
+      } else {
+        const dots = testGroups.map(g => {
+          const col = groupColor(groups.findIndex(x => x.id === g.id));
+          return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col.text};margin:0 2px;flex-shrink:0;"></span>`;
+        }).join('');
+        btnLabel = `${dots}<span>${testGroups.length} groupes</span>`;
+        btnStyle = '';
+        extraClass = ' has-group multi-group';
+      }
       return `
         <div class="avail-item" data-filename="${escHtml(t.filename)}">
           <div class="avail-item-info">
             <p class="test-name">${escHtml(t.name)}</p>
             <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
           </div>
-          <button class="group-assign-btn${grp ? ' has-group' : ''}" data-filename="${escHtml(t.filename)}"
-            style="${col ? `background-color:${col.bg};color:${col.text};border-color:${col.border};` : ''}">
-            ${grp ? escHtml(grp.name) : '— Assigner —'}
+          <button class="group-assign-btn${extraClass}" data-filename="${escHtml(t.filename)}" style="${btnStyle}">
+            ${btnLabel}
           </button>
         </div>`;
     }).join('');
@@ -267,40 +282,52 @@
 
   let pickerFilename = null;
 
-  function openGroupPicker(filename) {
-    pickerFilename = filename;
-    const grp = getTestGroup(filename);
-
+  function renderPickerList() {
+    const testGroups = getTestGroups(pickerFilename);
+    const assignedIds = new Set(testGroups.map(g => g.id));
     const list = document.getElementById('group-picker-list');
-    const noneSelected = !grp;
-    list.innerHTML = [
-      `<button class="group-picker-item${noneSelected ? ' is-selected' : ''}" data-group-id="">
-        <span class="group-picker-none">— Non assigné —</span>
-        ${noneSelected ? '<span class="group-picker-check">✓</span>' : ''}
-      </button>`,
-      ...groups.map((g, i) => {
-        const col = groupColor(i);
-        const selected = grp && grp.id === g.id;
-        return `<button class="group-picker-item${selected ? ' is-selected' : ''}" data-group-id="${escHtml(g.id)}"
-          style="${selected ? `background:${col.bg};` : ''}">
-          <span class="group-picker-dot" style="background:${col.text};"></span>
-          <span class="group-picker-name" style="${selected ? `color:${col.text};font-weight:600;` : ''}">${escHtml(g.name)}</span>
+    if (groups.length === 0) {
+      list.innerHTML = '<p style="padding:1rem 1.5rem;color:var(--text-muted,#888);text-align:center;font-size:0.9rem;">Aucun groupe créé</p>';
+      return;
+    }
+    list.innerHTML = groups.map((g, i) => {
+      const col = groupColor(i);
+      const checked = assignedIds.has(g.id);
+      return `
+        <label class="group-picker-item group-picker-checkbox-row${checked ? ' is-selected' : ''}" data-group-id="${escHtml(g.id)}"
+          style="${checked ? `background:${col.bg};` : ''}">
+          <input type="checkbox" class="group-picker-cb" value="${escHtml(g.id)}" ${checked ? 'checked' : ''} />
+          <span class="group-picker-dot" style="background:${col.text};flex-shrink:0;"></span>
+          <span class="group-picker-name" style="${checked ? `color:${col.text};font-weight:600;` : ''}">${escHtml(g.name)}</span>
           <span class="group-picker-count">${g.tests.length} test${g.tests.length !== 1 ? 's' : ''}</span>
-          ${selected ? '<span class="group-picker-check">✓</span>' : ''}
-        </button>`;
-      })
-    ].join('');
+        </label>`;
+    }).join('');
 
-    for (const btn of list.querySelectorAll('.group-picker-item')) {
-      btn.addEventListener('click', () => {
-        const groupId = btn.dataset.groupId || null;
-        const filename = pickerFilename;
-        closeGroupPicker();
-        assignTest(filename, groupId);
+    for (const cb of list.querySelectorAll('.group-picker-cb')) {
+      cb.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const groupId = cb.value;
+        const g = groups.find(x => x.id === groupId);
+        if (!g) return;
+        const newTests = cb.checked
+          ? [...g.tests.filter(t => t !== pickerFilename), pickerFilename]
+          : g.tests.filter(t => t !== pickerFilename);
+        await fetch('/api/groups/' + groupId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tests: newTests }),
+        });
+        groups = await fetch('/api/groups').then(r => r.json());
+        renderAll();
+        renderPickerList();
       });
     }
+  }
 
+  function openGroupPicker(filename) {
+    pickerFilename = filename;
     document.getElementById('group-picker-modal').style.display = 'flex';
+    renderPickerList();
   }
 
   function closeGroupPicker() {
@@ -316,36 +343,6 @@
     if (document.getElementById('group-picker-modal').style.display === 'none') return;
     if (e.key === 'Escape') closeGroupPicker();
   });
-
-  // ── Assign test to group ──
-
-  async function assignTest(filename, newGroupId) {
-    const currentGroup = getTestGroup(filename);
-    const updates = [];
-
-    if (currentGroup) {
-      updates.push(fetch('/api/groups/' + currentGroup.id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tests: currentGroup.tests.filter(t => t !== filename) }),
-      }));
-    }
-
-    if (newGroupId) {
-      const target = groups.find(g => g.id === newGroupId);
-      if (target) {
-        updates.push(fetch('/api/groups/' + newGroupId, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tests: [...target.tests.filter(t => t !== filename), filename] }),
-        }));
-      }
-    }
-
-    await Promise.all(updates);
-    groups = await fetch('/api/groups').then(r => r.json());
-    renderAll();
-  }
 
   // ── Render groups ──
 
@@ -532,12 +529,8 @@
       return tokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
     });
 
-    const visible = filtered.filter(t =>
-      !groups.some(x => x.id !== manageGroupId && x.tests.includes(t.filename))
-    );
-
     const list = document.getElementById('manage-tests-list');
-    list.innerHTML = visible.map(t => `
+    list.innerHTML = filtered.map(t => `
       <label class="manage-test-row">
         <input type="checkbox" class="manage-test-checkbox" value="${escHtml(t.filename)}"
           ${manageSelection.has(t.filename) ? 'checked' : ''} />
@@ -678,8 +671,8 @@
       fetch('/api/tests').then(r => r.json()),
       fetch('/api/groups').then(r => r.json()),
     ]);
-    //allTests = [...tests];
-    allTests = [...tests, ...generateFakeTests(100)];
+    allTests = [...tests];
+    //allTests = [...tests, ...generateFakeTests(100)];
     groups = grps;
     renderAll();
   }

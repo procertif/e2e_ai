@@ -3,9 +3,9 @@ import * as path from "path";
 import * as fs from "fs";
 
 const SCREENSHOTS_DIR = path.join(__dirname, "..", "screenshots", "cas1-quiz-noai");
-const BASE_URL = "https://app.procertif.dev";
+const BASE_URL = process.env.BASE_URL || "https://app.procertif.dev";
 const EMAIL = "degertbenjamin3@gmail.com";
-const OTP_CODE = "444444";
+const OTP_CODE = process.env.TEST_OTP || "444444";
 
 test.beforeAll(() => {
 	fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
