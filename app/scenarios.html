@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procertif — Scénarios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="/index.css" />
+  <link rel="stylesheet" href="/groups.css" />
+  <link rel="stylesheet" href="/chat.css" />
+  <link rel="stylesheet" href="/scenarios.css" />
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="app-sidebar">
+    <div class="sidebar-label">Test Runner E2E</div>
+    <hr class="divider" />
+    <nav class="sidebar-nav">
+      <a href="/" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1"/>
+        </svg>
+        Tests
+      </a>
+      <a href="/screenshots" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+          <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+        </svg>
+        Screenshots
+      </a>
+      <a href="/groups" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z"/>
+        </svg>
+        Groupes
+      </a>
+      <a href="/scenarios" class="sidebar-link sidebar-link--active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
+        </svg>
+        Scénarios
+      </a>
+      <a href="/chat" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
+        </svg>
+        Chat
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="app-main">
+    <div class="app-content">
+      <div class="panels-layout">
+
+        <!-- Left: test list -->
+        <div class="panel panel-available">
+          <div class="panel-header">
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="panel-title">Tests</h2>
+              <span class="avail-count" id="avail-count"></span>
+            </div>
+            <div class="panel-search-wrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+              </svg>
+              <input type="text" id="search-tests" class="panel-search-input" placeholder="Rechercher…" />
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="test-list"></div>
+          </div>
+        </div>
+
+        <!-- Right: actions -->
+        <div class="panel panel-scenarios">
+          <div id="scenario-empty" class="scenario-empty">
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="currentColor" viewBox="0 0 16 16" style="opacity:0.2;">
+              <path fill-rule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
+            </svg>
+            <p>Sélectionnez un test pour voir son scénario</p>
+          </div>
+          <div id="scenario-content" style="display:none; height:100%; overflow-y:auto; padding: 1.25rem 1.5rem;">
+            <div class="scenario-header">
+              <div>
+                <h2 class="scenario-title" id="scenario-title"></h2>
+                <span class="scenario-file" id="scenario-file"></span>
+              </div>
+              <div class="scenario-header-actions">
+                <span class="scenario-count" id="scenario-count"></span>
+                <button class="scenario-download-btn" id="btn-download" title="Télécharger en .txt">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
+                  </svg>
+                  .txt
+                </button>
+              </div>
+            </div>
+            <div class="scenario-prompt" id="scenario-prompt" style="display:none">
+              <div class="spec-header">
+                <div class="scenario-prompt-toggle" id="btn-prompt-toggle">
+                  <span class="spec-label">Prompt utilisateur</span>
+                  <span class="prompt-chevron" id="prompt-chevron">›</span>
+                </div>
+                <button class="copy-btn" id="btn-copy-all-prompt" title="Copier tout le prompt">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg>
+                  Tout copier
+                </button>
+              </div>
+              <div class="prompt-body" id="prompt-body" style="display:none"></div>
+            </div>
+
+            <div class="scenario-spec" id="scenario-spec" style="display:none">
+              <div class="spec-header">
+                <span class="spec-label">Résultat attendu</span>
+                <button class="copy-btn" id="btn-copy-spec" title="Copier">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg>
+                  Copier
+                </button>
+              </div>
+              <div class="spec-body" id="spec-body"></div>
+            </div>
+            <ol class="scenario-steps" id="scenario-steps"></ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Chat drawer ── -->
+<div id="drawer-backdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
+
+<div id="chat-drawer" class="chat-drawer">
+  <div class="chat-drawer-header">
+    <div class="chat-drawer-ctx">
+      <span class="ctx-badge" id="ctx-badge">Étape 1</span>
+      <span class="ctx-desc" id="ctx-desc"></span>
+      <span class="ctx-line" id="ctx-line"></span>
+    </div>
+    <div class="chat-drawer-btns">
+      <button class="drawer-icon-btn" id="drawer-new-btn" title="Nouvelle conversation" onclick="resetDrawer()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4"/>
+        </svg>
+      </button>
+      <button class="drawer-icon-btn" title="Fermer" onclick="closeDrawer()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="chat-drawer-messages" id="drawer-messages"></div>
+
+  <div class="chat-drawer-footer">
+    <div class="chat-drawer-input-wrap" id="drawer-input-wrap">
+      <textarea id="drawer-input" class="drawer-textarea" placeholder="Votre message…" rows="1"></textarea>
+      <button class="drawer-send-btn" id="drawer-send" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471z"/>
+        </svg>
+      </button>
+    </div>
+    <p class="chat-hint">Entrée pour envoyer · Shift+Entrée pour nouvelle ligne</p>
+  </div>
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  const GHERKIN_KEYWORDS = ['Étant donné', 'Étant donnés', 'Étant données', 'Quand', 'Lorsque', 'Alors', 'Et', 'Mais'];
+  function renderGherkin(text) {
+    return text.split('\n').map(line => {
+      const kw = GHERKIN_KEYWORDS.find(k => line.trimStart().startsWith(k));
+      const safe = escHtml(line);
+      if (!kw) return safe;
+      const safeKw = escHtml(kw);
+      return safe.replace(safeKw, `<span class="spec-keyword">${safeKw}</span>`);
+    }).join('\n');
+  }
+
+  // ── Scenario state ──
+  let allTests = [];
+  let selectedTest = null;
+  let currentActions = {}; // index -> action object
+  let currentFile = '';
+
+  // ── Chat drawer state ──
+  let drawerSessionId = null;
+  let drawerStreaming = false;
+  let drawerCtx = null; // { action, testFile }
+
+  // ── Scenario: load & render ──
+
+  async function loadTests() {
+    const res = await fetch('/api/tests');
+    allTests = await res.json();
+    renderList(document.getElementById('search-tests').value.trim());
+  }
+
+  function renderList(q) {
+    const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
+      const name = t.name.toLowerCase();
+      return tokens.every(tok => name.includes(tok));
+    });
+    document.getElementById('avail-count').textContent =
+      filtered.length !== allTests.length ? `${filtered.length}/${allTests.length}` : `${allTests.length}`;
+    document.getElementById('test-list').innerHTML = filtered.map(t => `
+      <div class="test-item scenario-test-item ${selectedTest === t.filename ? 'selected' : ''}"
+           data-filename="${t.filename}" onclick="selectTest('${t.filename}')">
+        <span class="test-name">${escHtml(t.name)}</span>
+        <span class="test-file">${escHtml(t.filename)}</span>
+      </div>
+    `).join('');
+  }
+
+  async function selectTest(filename) {
+    selectedTest = filename;
+    renderList(document.getElementById('search-tests').value.trim());
+
+    const testKey = filename.replace(/\.spec\.ts$/, '');
+    let data;
+    try {
+      const res = await fetch(`/api/actions/${encodeURIComponent(testKey)}`);
+      if (!res.ok) throw new Error();
+      data = await res.json();
+    } catch {
+      showScenarioEmpty();
+      return;
+    }
+
+    currentFile = data.file;
+    currentActions = {};
+    for (const a of data.actions) currentActions[a.index] = a;
+
+    document.getElementById('scenario-empty').style.display = 'none';
+    document.getElementById('scenario-content').style.display = '';
+    document.getElementById('scenario-title').textContent = data.test;
+    document.getElementById('scenario-file').textContent = data.file;
+    document.getElementById('scenario-count').textContent =
+      `${data.actions.length} étape${data.actions.length > 1 ? 's' : ''}`;
+
+    document.getElementById('scenario-steps').innerHTML = data.actions.map(a => `
+      <li class="scenario-step" id="step-${a.index}">
+        <div class="step-body">
+          <span class="step-desc">${escHtml(a.description)}</span>
+          <div class="step-meta">
+            <span class="step-line">ligne ${a.line}</span>
+            <button class="step-edit-btn" data-action="${a.index}" title="Modifier avec Claude">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
+              </svg>
+              Modifier
+            </button>
+          </div>
+        </div>
+      </li>
+    `).join('');
+
+    document.querySelectorAll('.step-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = currentActions[Number(btn.dataset.action)];
+        if (action) openDrawer(action, currentFile);
+      });
+    });
+
+    loadPrompt(testKey);
+    loadSpec(testKey);
+
+    document.getElementById('btn-download').onclick = () => {
+      const lines = [
+        `Test : ${data.test}`,
+        `Fichier : ${data.file}`,
+        '',
+        ...data.actions.map(a => a.description),
+      ];
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.test}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  }
+
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.innerHTML;
+      btn.textContent = '✓';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    });
+  }
+
+  async function loadPrompt(testKey) {
+    const promptEl = document.getElementById('scenario-prompt');
+    const bodyEl = document.getElementById('prompt-body');
+    let allMessages = [];
+    try {
+      const res = await fetch(`/api/prompt/${encodeURIComponent(testKey)}`);
+      if (!res.ok) throw new Error();
+      allMessages = await res.json();
+      promptEl.style.display = '';
+      bodyEl.innerHTML = allMessages.map((m, i) => {
+        const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return `
+          <div class="prompt-message-wrap">
+            <div class="prompt-message" id="prompt-msg-${i}">${escHtml(text)}</div>
+            <button class="copy-btn copy-btn--msg" data-index="${i}" title="Copier ce message">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg>
+            </button>
+          </div>`;
+      }).join('');
+
+      bodyEl.querySelectorAll('.copy-btn--msg').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const m = allMessages[parseInt(btn.dataset.index)];
+          copyText(typeof m.content === 'string' ? m.content : JSON.stringify(m.content), btn);
+        });
+      });
+    } catch {
+      promptEl.style.display = 'none';
+    }
+
+    document.getElementById('btn-prompt-toggle').onclick = () => {
+      const isOpen = bodyEl.style.display !== 'none';
+      bodyEl.style.display = isOpen ? 'none' : '';
+      document.getElementById('prompt-chevron').style.transform = isOpen ? '' : 'rotate(90deg)';
+    };
+
+    document.getElementById('btn-copy-all-prompt').addEventListener('click', () => {
+      const all = allMessages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n\n---\n\n');
+      copyText(all, document.getElementById('btn-copy-all-prompt'));
+    });
+  }
+
+  async function loadSpec(testKey) {
+    const specEl = document.getElementById('scenario-spec');
+    const bodyEl = document.getElementById('spec-body');
+    specEl.style.display = '';
+    bodyEl.innerHTML = '<span class="spec-generating">Génération en cours…</span>';
+    let specText = '';
+    try {
+      const res = await fetch(`/api/spec/${encodeURIComponent(testKey)}`);
+      if (!res.ok) throw new Error();
+      const { spec } = await res.json();
+      specText = spec;
+      bodyEl.innerHTML = renderGherkin(spec);
+    } catch {
+      bodyEl.innerHTML = '<span class="spec-generating">Spec non disponible — elle sera générée au prochain démarrage du serveur.</span>';
+    }
+    document.getElementById('btn-copy-spec').addEventListener('click', () => {
+      if (specText) copyText(specText, document.getElementById('btn-copy-spec'));
+    });
+  }
+
+  function showScenarioEmpty() {
+    document.getElementById('scenario-empty').style.display = '';
+    document.getElementById('scenario-content').style.display = 'none';
+  }
+
+  document.getElementById('search-tests').addEventListener('input', e => renderList(e.target.value.trim()));
+
+  // ── Chat drawer ──
+
+  const drawerEl     = document.getElementById('chat-drawer');
+  const backdropEl   = document.getElementById('drawer-backdrop');
+  const messagesEl   = document.getElementById('drawer-messages');
+  const inputEl      = document.getElementById('drawer-input');
+  const sendBtn      = document.getElementById('drawer-send');
+  const inputWrapEl  = document.getElementById('drawer-input-wrap');
+
+  function openDrawer(action, testFile) {
+    drawerCtx = { action, testFile };
+
+    // Update context header
+    document.getElementById('ctx-badge').textContent = `Étape ${action.index}`;
+    document.getElementById('ctx-desc').textContent = action.description;
+    document.getElementById('ctx-line').textContent = `ligne ${action.line}`;
+
+    // Highlight active step
+    document.querySelectorAll('.scenario-step').forEach(el => el.classList.remove('step-active'));
+    const stepEl = document.getElementById(`step-${action.index}`);
+    if (stepEl) stepEl.classList.add('step-active');
+
+    // Reset and open
+    resetDrawer(false);
+    drawerEl.classList.add('is-open');
+    backdropEl.classList.add('is-open');
+
+    // Auto-send the context message
+    const initMsg = `Lis le fichier \`/home/procertif/e2e_ai/tests/${testFile}\` et aide-moi à modifier l'étape ${action.index} (ligne ${action.line}) : **${action.description}**.`;
+    drawerSendMessage(initMsg, true);
+  }
+
+  function closeDrawer() {
+    drawerEl.classList.remove('is-open');
+    backdropEl.classList.remove('is-open');
+    document.querySelectorAll('.scenario-step').forEach(el => el.classList.remove('step-active'));
+  }
+
+  function resetDrawer(keepCtx = true) {
+    drawerSessionId = null;
+    messagesEl.innerHTML = '';
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    setDrawerStreaming(false);
+    if (!keepCtx) drawerCtx = null;
+  }
+
+  function setDrawerStreaming(val) {
+    drawerStreaming = val;
+    inputWrapEl.classList.toggle('is-streaming', val);
+    sendBtn.disabled = val || !inputEl.value.trim();
+  }
+
+  inputEl.addEventListener('input', () => {
+    sendBtn.disabled = drawerStreaming || !inputEl.value.trim();
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled && !drawerStreaming) drawerSendMessage(inputEl.value.trim());
+    }
+  });
+
+  sendBtn.addEventListener('click', () => {
+    if (!drawerStreaming && inputEl.value.trim()) drawerSendMessage(inputEl.value.trim());
+  });
+
+  async function drawerSendMessage(text, silent = false) {
+    if (!text || drawerStreaming) return;
+    setDrawerStreaming(true);
+    if (!silent) {
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+    }
+
+    appendDrawerUser(text);
+    const thinkEl = appendDrawerThinking();
+
+    const instructions = localStorage.getItem('procertif_instructions') || '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, sessionId: drawerSessionId, instructions: instructions || null }),
+      });
+      if (!res.ok) throw new Error('Erreur serveur ' + res.status);
+      const { runId } = await res.json();
+
+      thinkEl.remove();
+      const msgEl = appendDrawerAssistant();
+      let accText = '';
+
+      const es = new EventSource('/api/chat-stream/' + runId);
+      es.onmessage = evt => {
+        let ev;
+        try { ev = JSON.parse(evt.data); } catch { return; }
+
+        if (ev.type === 'delta') {
+          accText += ev.text;
+          renderDrawerText(msgEl, accText, false);
+          return;
+        }
+        if (ev.type === 'tool_start') {
+          addDrawerToolPill(msgEl, ev.name, ev.input || null);
+          return;
+        }
+        if (ev.type === 'done') {
+          if (ev.sessionId) drawerSessionId = ev.sessionId;
+          renderDrawerText(msgEl, accText || '*(Aucune réponse)*', true);
+          es.close();
+          setDrawerStreaming(false);
+        }
+      };
+      es.onerror = () => {
+        renderDrawerText(msgEl, accText || '*(Erreur de connexion)*', true);
+        es.close();
+        setDrawerStreaming(false);
+      };
+    } catch (err) {
+      thinkEl.remove();
+      const msgEl = appendDrawerAssistant();
+      renderDrawerText(msgEl, `*(Erreur : ${escHtml(err.message)})*`, true);
+      setDrawerStreaming(false);
+    }
+  }
+
+  // ── Drawer message rendering ──
+
+  function appendDrawerUser(text) {
+    const div = document.createElement('div');
+    div.className = 'dmsg dmsg--user';
+    div.innerHTML = `<div class="dmsg-bubble dmsg-bubble--user">${escHtml(text)}</div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function appendDrawerThinking() {
+    const div = document.createElement('div');
+    div.className = 'dmsg dmsg--assistant';
+    div.innerHTML = `<div class="dmsg-bubble dmsg-bubble--assistant"><div class="thinking-dots"><span></span><span></span><span></span></div></div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function appendDrawerAssistant() {
+    const div = document.createElement('div');
+    div.className = 'dmsg dmsg--assistant';
+    div.innerHTML = `
+      <div class="dmsg-bubble dmsg-bubble--assistant">
+        <div class="tool-pills" style="display:none;"></div>
+        <div class="dmsg-content"></div>
+      </div>`;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function renderDrawerText(msgEl, text, done) {
+    const content = msgEl.querySelector('.dmsg-content');
+    if (!content) return;
+    content.innerHTML = text ? marked.parse(text) : '';
+    if (!done) {
+      const c = document.createElement('span');
+      c.className = 'typing-cursor';
+      c.textContent = '▋';
+      content.appendChild(c);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addDrawerToolPill(msgEl, toolName, inputData) {
+    const pillsEl = msgEl.querySelector('.tool-pills');
+    if (!pillsEl) return;
+    pillsEl.style.display = 'flex';
+    const label = formatToolLabel(toolName, inputData);
+    const cls = toolPillClass(toolName);
+    const pill = document.createElement('span');
+    pill.className = `tool-pill tool-pill--${cls}`;
+    pill.title = JSON.stringify(inputData, null, 2);
+    pill.textContent = label;
+    pillsEl.appendChild(pill);
+  }
+
+  function formatToolLabel(name, input) {
+    const n = name.toLowerCase();
+    if (n === 'read' && input?.file_path)      return '📄 ' + shortPath(input.file_path);
+    if (n === 'readimage' && input?.file_path) return '🖼 ' + shortPath(input.file_path);
+    if (n === 'webfetch' && input?.url)        return '🌐 ' + input.url.slice(0, 40) + (input.url.length > 40 ? '…' : '');
+    if (n === 'write' && input?.file_path)     return '✏️ ' + shortPath(input.file_path);
+    if (n === 'edit' && input?.file_path)      return '✏️ ' + shortPath(input.file_path);
+    if (n === 'bash' && input?.command)        return '$ ' + input.command.slice(0, 40) + (input.command.length > 40 ? '…' : '');
+    if (input?.query || input?.pattern)        return '🔍 ' + (input.query || input.pattern).slice(0, 30);
+    return name;
+  }
+
+  function shortPath(p) {
+    return p.replace('/home/procertif/', '~/').replace('/home/benjamin/', '~/');
+  }
+
+  function toolPillClass(name) {
+    const n = name.toLowerCase();
+    if (n === 'read')      return 'read';
+    if (n === 'readimage') return 'image';
+    if (n === 'webfetch')  return 'web';
+    if (n === 'write')     return 'write';
+    if (n === 'edit')      return 'edit';
+    if (n === 'bash')      return 'bash';
+    return 'search';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadTests();
+</script>
+</body>
+</html>

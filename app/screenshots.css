@@ -64,8 +64,30 @@
 
 .screenshots-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.875rem;
+}
+
+.screenshot-card-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.screenshot-card-wrap[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  white-space: normal;
+  max-width: 320px;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .screenshot-card {
@@ -84,7 +106,7 @@
 
 .screenshot-thumb {
   width: 100%;
-  aspect-ratio: 16/9;
+  height: 250px;
   object-fit: cover;
   object-position: top;
   display: block;

@@ -1,0 +1,17 @@
+services:
+  e2e:
+    build: .
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./app:/app/app
+      - ./playwright.config.ts:/app/playwright.config.ts
+      - ./tests:/app/tests
+      - ./test-results:/app/test-results
+      - ./data:/app/data
+      - ./screenshots:/app/screenshots
+      - ./.env:/app/.env:ro
+      - /home/procertif/www:/home/procertif/www:ro
+      - ${HOME}/.claude:/root/.claude:ro

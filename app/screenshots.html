@@ -37,6 +37,12 @@
         </svg>
         Groupes
       </a>
+      <a href="/scenarios" class="sidebar-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
+        </svg>
+        Scénarios
+      </a>
       <a href="/chat" class="sidebar-link">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
           <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83"/>
@@ -85,6 +91,7 @@
 
 <script>
   let groups = [];
+  let actionsMap = {};
   let lightboxItems = [];
   let lightboxIndex = 0;
 
@@ -96,6 +103,18 @@
         fetch('/api/screenshots').then(r => r.json()),
         filterParam ? fetch('/api/session').then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
       ]);
+
+      const actionsResults = await Promise.all(
+        allGroups.map(g => fetch(`/api/actions/${encodeURIComponent(g.folder)}`).then(r => r.ok ? r.json() : null).catch(() => null))
+      );
+      actionsMap = {};
+      allGroups.forEach((g, i) => {
+        const data = actionsResults[i];
+        if (data?.actions) {
+          actionsMap[g.folder] = {};
+          for (const a of data.actions) actionsMap[g.folder][a.index] = a.description;
+        }
+      });
 
       if (filterParam && session) {
         const folders = new Set(filterParam === 'failed' ? session.failed : session.all);
@@ -135,12 +154,18 @@
 
     container.innerHTML = filtered.map(g => {
       const count = g.screenshots.length;
-      const cards = g.screenshots.map((s, i) => `
-        <div class="screenshot-card" data-local-index="${i}">
-          <img class="screenshot-thumb" src="${s.url}" alt="${s.file}" loading="lazy" />
-          <div class="screenshot-label">${s.file}</div>
-        </div>`
-      ).join('');
+      const cards = g.screenshots.map((s, i) => {
+        const match = s.file.match(/^(\d+)-/);
+        const idx = match ? parseInt(match[1]) : null;
+        const label = (idx !== null && actionsMap[g.folder]?.[idx]) || s.file.replace(/\.png$/, '').replace(/^\d+-/, '');
+        return `
+        <div class="screenshot-card-wrap" data-tooltip="${label.replace(/"/g, '&quot;')}">
+          <div class="screenshot-card" data-local-index="${i}">
+            <img class="screenshot-thumb" src="${s.url}" alt="${s.file}" loading="lazy" />
+            <div class="screenshot-label">${label}</div>
+          </div>
+        </div>`;
+      }).join('');
 
       return `
         <div class="test-group" data-folder="${g.folder}">
@@ -166,7 +191,12 @@
       for (const card of groupEl.querySelectorAll('.screenshot-card')) {
         card.addEventListener('click', () => {
           openLightbox(
-            group.screenshots.map(s => ({ ...s, testName: group.testName })),
+            group.screenshots.map(s => {
+              const match = s.file.match(/^(\d+)-/);
+              const idx = match ? parseInt(match[1]) : null;
+              const label = (idx !== null && actionsMap[group.folder]?.[idx]) || s.file.replace(/\.png$/, '').replace(/^\d+-/, '');
+              return { ...s, testName: group.testName, label };
+            }),
             parseInt(card.dataset.localIndex)
           );
         });
@@ -198,7 +228,7 @@
   function updateLightbox() {
     const item = lightboxItems[lightboxIndex];
     document.getElementById('lightbox-img').src = item.url;
-    document.getElementById('lightbox-caption').textContent = `${item.testName} — ${item.file}`;
+    document.getElementById('lightbox-caption').textContent = `${item.testName} — ${item.label}`;
     document.getElementById('lightbox-counter').textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
     document.getElementById('lightbox-prev').style.display = lightboxIndex === 0 ? 'none' : '';
     document.getElementById('lightbox-next').style.display = lightboxIndex === lightboxItems.length - 1 ? 'none' : '';

@@ -12,6 +12,7 @@ const DATA_DIR = path.resolve(E2E_DIR, "data");
 const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
 const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
 const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
+const SPECS_DIR = path.join(DATA_DIR, "specs");
 
 function parseEnvFile(filePath) {
 	try {
@@ -278,7 +279,7 @@ async function executeTool(name, input) {
 async function callClaudeStream(token, messages, onEvent, instructions) {
 	const systemBlocks = [
 		{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
-		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}.` },
+		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}. The source code of the tested application (Procertif) is at /home/procertif/www/.` },
 	];
 	if (instructions && instructions.trim()) {
 		systemBlocks.push({ type: "text", text: instructions.trim() });
@@ -421,6 +422,27 @@ function startChatRun(message, images, sessionId, instructions) {
 		chatHistories.set(runId, history);
 		if (chatHistories.size > 50) chatHistories.delete([...chatHistories.keys()][0]);
 
+		const actionTestDir = path.join(DATA_DIR, "actionTest");
+		const promptTestDir = path.join(DATA_DIR, "promptTest");
+		for (const msg of history) {
+			if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
+			for (const block of msg.content) {
+				if (block.type !== "tool_use" || !["Write", "Edit"].includes(block.name)) continue;
+				const fp = block.input?.file_path || "";
+				if (!fp.startsWith(actionTestDir)) continue;
+				const testKey = path.basename(fp, ".json");
+				fs.mkdirSync(promptTestDir, { recursive: true });
+				const userMessages = history
+					.filter(m => m.role === "user" && !( Array.isArray(m.content) && m.content[0]?.type === "tool_result" ))
+					.map(m => ({ role: m.role, content: m.content }));
+				fs.writeFileSync(
+					path.join(promptTestDir, testKey + ".json"),
+					JSON.stringify(userMessages, null, 2),
+					"utf-8"
+				);
+			}
+		}
+
 		run.status = "done";
 		pushEvent({ type: "done", status: "done", sessionId: runId });
 		for (const res of run.clients) res.end();
@@ -445,18 +467,16 @@ function listTests() {
 		.map((filename) => {
 			const m = filename
 				.replace(".spec.ts", "")
-				.match(/^(\d+)-(cas(\d+))-(.+?)-(ai|noai)$/);
+				.match(/^(?:\d+-)?cas(\d+)-(.+?)(?:-(?:ai|noai))?$/);
 			if (m) {
-				const [, order, cas, casNum, type, mode] = m;
+				const [, casNum, type] = m;
 				const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
 				return {
 					filename,
-					cas,
-					order: parseInt(order),
+					cas: `cas${casNum}`,
 					casNum: parseInt(casNum),
 					type,
 					typeLabel,
-					mode,
 					name: `Cas ${casNum} - ${typeLabel}`,
 					estimatedMs: estimatedMs(history, filename),
 				};
@@ -465,16 +485,14 @@ function listTests() {
 			return {
 				filename,
 				cas: baseName,
-				order: 0,
 				casNum: 0,
 				type: baseName,
 				typeLabel: baseName,
-				mode: "noai",
 				name: baseName.replace(/-/g, " "),
 				estimatedMs: estimatedMs(history, filename),
 			};
 		})
-		.sort((a, b) => a.order - b.order || a.filename.localeCompare(b.filename));
+		.sort((a, b) => a.filename.localeCompare(b.filename));
 }
 
 function listScreenshots() {
@@ -594,6 +612,74 @@ function startRun(filename) {
 
 	return runId;
 }
+
+async function generateSpec(testname) {
+	const specFile = path.join(SPECS_DIR, testname + ".md");
+	const testFile = path.join(TESTS_DIR, testname + ".spec.ts");
+	const actionsFile = path.join(DATA_DIR, "actionTest", testname + ".json");
+
+	let testCode = "", actionsText = "";
+	try { testCode = fs.readFileSync(testFile, "utf-8"); } catch { return; }
+	try { actionsText = fs.readFileSync(actionsFile, "utf-8"); } catch {}
+
+	const prompt = `À partir du code de test Playwright et de la liste d'actions ci-dessous, génère une spécification en français au format Gherkin (Given/When/Then). Utilise les mots-clés français : "Étant donné", "Quand", "Alors", "Et". Décris le scénario du point de vue de l'utilisateur, sans jargon technique, sans sélecteurs CSS, sans mentionner Playwright. Chaque ligne commence par un mot-clé. Sois concis (5 à 8 lignes maximum). Ne mets pas de bloc de code, juste le texte brut.
+
+Règle importante : ne mentionne jamais les interactions physiques avec l'interface (pas de "clique", "remplit", "saisit", "appuie sur", "sélectionne"). Décris uniquement l'intention ou l'action métier de l'utilisateur. Par exemple : au lieu de "Quand il clique sur Commencer", écris "Quand il commence l'évaluation". Au lieu de "Quand il saisit son email", écris "Quand il s'identifie".
+
+Exemple de format attendu :
+Étant donné un utilisateur connecté sur la page /mywallet
+Quand il ouvre le Cas 1
+Alors un quiz démarre dans un nouvel onglet
+Et l'utilisateur répond aux 3 questions
+Et soumet l'évaluation
+Alors une confirmation de soumission s'affiche
+
+## Code du test
+\`\`\`typescript
+${testCode}
+\`\`\`
+
+## Liste des actions
+\`\`\`json
+${actionsText}
+\`\`\``;
+
+	try {
+		const token = await getOAuthToken();
+		let spec = "";
+		await callClaudeStream(token, [{ role: "user", content: prompt }], (event) => {
+			if (event.type === "delta" && event.text) spec += event.text;
+		});
+		if (!spec.trim()) throw new Error("Contenu vide reçu");
+		fs.mkdirSync(SPECS_DIR, { recursive: true });
+		fs.writeFileSync(specFile, spec, "utf-8");
+		console.log(`[spec] Généré : ${testname} (${spec.length} chars)`);
+	} catch (e) {
+		console.error(`[spec] Erreur pour ${testname}:`, e.message || String(e));
+		try { fs.unlinkSync(specFile); } catch {}
+	}
+}
+
+function generateMissingSpecs() {
+	fs.mkdirSync(SPECS_DIR, { recursive: true });
+	if (!fs.existsSync(TESTS_DIR)) return;
+	for (const f of fs.readdirSync(TESTS_DIR).filter(f => f.endsWith(".spec.ts"))) {
+		const testname = f.replace(".spec.ts", "");
+		if (!fs.existsSync(path.join(SPECS_DIR, testname + ".md"))) {
+			generateSpec(testname).catch(() => {});
+		}
+	}
+}
+
+const specDebounce = new Map();
+fs.watch(TESTS_DIR, (eventType, filename) => {
+	if (!filename || !filename.endsWith(".spec.ts")) return;
+	const testname = filename.replace(".spec.ts", "");
+	clearTimeout(specDebounce.get(testname));
+	specDebounce.set(testname, setTimeout(() => {
+		generateSpec(testname).catch(() => {});
+	}, 2000));
+});
 
 http
 	.createServer(async (req, res) => {
@@ -835,6 +921,67 @@ http
 			return;
 		}
 
+		if (req.method === "GET" && pathname === "/scenarios") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "scenarios.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/scenarios.css") {
+			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "scenarios.css")));
+			return;
+		}
+
+		const specRegenMatch = pathname.match(/^\/api\/spec-regen\/([^/]+)$/);
+		if (req.method === "POST" && specRegenMatch) {
+			const testname = decodeURIComponent(specRegenMatch[1]);
+			generateSpec(testname).catch(() => {});
+			res.writeHead(202); res.end();
+			return;
+		}
+
+		const specMatch = pathname.match(/^\/api\/spec\/([^/]+)$/);
+		if (req.method === "GET" && specMatch) {
+			const testname = decodeURIComponent(specMatch[1]);
+			const specFile = path.join(SPECS_DIR, testname + ".md");
+			if (!path.resolve(specFile).startsWith(SPECS_DIR) || !fs.existsSync(specFile)) {
+				res.writeHead(404); res.end("{}");
+				return;
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ spec: fs.readFileSync(specFile, "utf-8") }));
+			return;
+		}
+
+		const actionsMatch = pathname.match(/^\/api\/actions\/([^/]+)$/);
+		if (req.method === "GET" && actionsMatch) {
+			const testKey = decodeURIComponent(actionsMatch[1]);
+			const jsonPath = path.join(DATA_DIR, "actionTest", `${testKey}.json`);
+			if (!jsonPath.startsWith(path.join(DATA_DIR, "actionTest")) || !fs.existsSync(jsonPath)) {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(fs.readFileSync(jsonPath, "utf-8"));
+			return;
+		}
+
+		const promptMatch = pathname.match(/^\/api\/prompt\/([^/]+)$/);
+		if (req.method === "GET" && promptMatch) {
+			const testKey = decodeURIComponent(promptMatch[1]);
+			const jsonPath = path.join(DATA_DIR, "promptTest", `${testKey}.json`);
+			if (!jsonPath.startsWith(path.join(DATA_DIR, "promptTest")) || !fs.existsSync(jsonPath)) {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(fs.readFileSync(jsonPath, "utf-8"));
+			return;
+		}
+
 		if (req.method === "GET" && pathname === "/chat") {
 			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
 			res.end(fs.readFileSync(path.join(__dirname, "chat.html")));
@@ -917,6 +1064,7 @@ http
 		res.writeHead(404);
 		res.end("Not found");
 	})
-	.listen(PORT, () =>
-		console.log(`Test runner available at http://localhost:${PORT}`),
-	);
+	.listen(PORT, () => {
+		console.log(`Test runner available at http://localhost:${PORT}`);
+		generateMissingSpecs();
+	});
