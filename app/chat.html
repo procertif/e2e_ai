@@ -161,7 +161,11 @@
   const instructionsBadge  = document.getElementById('instructions-badge');
   const instructionsChevron = document.getElementById('instructions-chevron');
 
-  const DEFAULT_INSTRUCTIONS = `Les tests sont toujours en playwright natif et tu dois toujours chercher dans le code et t'inspirer des tests déjà existant.
+  const DEFAULT_INSTRUCTIONS = `Tu dois TOUJOURS regrouper les appels d'outils indépendants dans le même bloc
+pour les exécuter en parallèle. Ne jamais appeler les outils séquentiellement
+si leurs entrées ne dépendent pas les unes des autres.
+
+Les tests sont toujours en playwright natif et tu dois toujours chercher dans le code et t'inspirer des tests déjà existant.
 
 Toujours prendre un screenshot entre chaque action dans les tests.
 
@@ -169,7 +173,6 @@ Dans les fichiers de test Playwright, ajoute un commentaire structuré avant cha
 // ACTION: <description courte en français>
 Ne commente pas les screenshots, les déclarations de variables, la configuration ni les utilitaires (mkdirSync, setTimeout…).
 Ce balisage permet de générer un fichier JSON listant les étapes du test dans l'ordre pour pouvoir les modifier facilement.
-De plus, tu ajouteras pour chaque étape le nom du fichier de l'élément ciblé.
 Tu dois toujours générer ce json quand tu génères un test`;
 
   function loadInstructions() {
@@ -584,6 +587,11 @@ Tu dois toujours générer ce json quand tu génères un test`;
           return;
         }
 
+        if (event.type === 'pending') {
+          appendPendingCard(event.testname);
+          return;
+        }
+
         if (event.type === 'done') {
           if (event.sessionId) sessionId = event.sessionId;
           const finalText = event.status === 'error'
@@ -610,6 +618,62 @@ Tu dois toujours générer ce json quand tu génères un test`;
       renderText(msgEl, `*(Erreur : ${escHtml(err.message)})*`, true);
       setStreaming(false);
     }
+  }
+
+  function appendPendingCard(testname) {
+    const card = document.createElement('div');
+    card.className = 'pending-card';
+    card.id = `pending-${testname}`;
+    card.innerHTML = `
+      <div class="pending-header">
+        <span class="pending-icon">⏳</span>
+        <span class="pending-title">Modifications en attente</span>
+        <code class="pending-file">${escHtml(testname)}.spec.ts</code>
+      </div>
+      <pre class="pending-output" id="pending-output-${escHtml(testname)}" style="display:none"></pre>
+      <div class="pending-actions">
+        <button class="pending-btn pending-btn--run" data-testname="${escHtml(testname)}">▶ Tester</button>
+        <button class="pending-btn pending-btn--confirm" data-testname="${escHtml(testname)}">✓ Confirmer</button>
+        <button class="pending-btn pending-btn--discard" data-testname="${escHtml(testname)}">✕ Annuler</button>
+      </div>`;
+    messagesEl.appendChild(card);
+    scrollBottom();
+
+    card.querySelector('.pending-btn--run').addEventListener('click', async () => {
+      const out = document.getElementById(`pending-output-${testname}`);
+      out.textContent = '';
+      out.style.display = 'block';
+      const res = await fetch(`/api/pending/${encodeURIComponent(testname)}/run`, { method: 'POST' });
+      if (!res.ok) { out.textContent = 'Erreur lors du lancement.'; return; }
+      const { runId } = await res.json();
+      const es = new EventSource('/api/stream/' + runId);
+      es.onmessage = (e) => {
+        const ev = JSON.parse(e.data);
+        if (ev.text) { out.textContent += ev.text; scrollBottom(); }
+        if (ev.done) {
+          es.close();
+          card.querySelector('.pending-btn--run').textContent = ev.status === 'passed' ? '▶ Retester' : '▶ Retester';
+        }
+      };
+    });
+
+    card.querySelector('.pending-btn--confirm').addEventListener('click', async () => {
+      await fetch(`/api/pending/${encodeURIComponent(testname)}/confirm`, { method: 'POST' });
+      card.classList.add('pending-card--done');
+      card.querySelector('.pending-header').innerHTML = `<span>✓ Modifications appliquées — <code>${escHtml(testname)}.spec.ts</code></span>`;
+      card.querySelector('.pending-actions').remove();
+      const out = document.getElementById(`pending-output-${testname}`);
+      if (out) out.remove();
+    });
+
+    card.querySelector('.pending-btn--discard').addEventListener('click', async () => {
+      await fetch(`/api/pending/${encodeURIComponent(testname)}/discard`, { method: 'POST' });
+      card.classList.add('pending-card--done');
+      card.querySelector('.pending-header').innerHTML = `<span>✕ Modifications annulées — <code>${escHtml(testname)}.spec.ts</code></span>`;
+      card.querySelector('.pending-actions').remove();
+      const out = document.getElementById(`pending-output-${testname}`);
+      if (out) out.remove();
+    });
   }
 
   restoreChatState();

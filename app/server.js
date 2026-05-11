@@ -13,6 +13,11 @@ const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
 const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
 const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
 const SPECS_DIR = path.join(DATA_DIR, "specs");
+const PENDING_DIR = path.join(DATA_DIR, "pending");
+
+function isTestSpecPath(fp) {
+	return fp && fp.endsWith(".spec.ts") && fp.includes("/tests/") && !fp.includes("/pending/");
+}
 
 function parseEnvFile(filePath) {
 	try {
@@ -34,7 +39,7 @@ const envLocal = parseEnvFile(path.join(E2E_DIR, ".env"));
 
 const PORT = Number(envLocal.PORT || process.env.PORT || 3333);
 const ANTHROPIC_CLIENT_ID = envLocal.ANTHROPIC_CLIENT_ID || process.env.ANTHROPIC_CLIENT_ID || "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 
 
 const runs = new Map();
@@ -179,7 +184,15 @@ async function getOAuthToken() {
 	return oauth.accessToken;
 }
 
+// Constante à ajouter en haut du fichier, près des autres constantes
+const MAX_TOOL_OUTPUT = 10000; // caractères — ajustable selon ton budget token
+
 async function executeTool(name, input) {
+	const truncate = (str) => {
+		if (str.length <= MAX_TOOL_OUTPUT) return str;
+		return str.slice(0, MAX_TOOL_OUTPUT) + `\n...[tronqué : ${str.length - MAX_TOOL_OUTPUT} caractères supplémentaires]`;
+	};
+
 	try {
 		switch (name) {
 			case "Read": {
@@ -187,14 +200,34 @@ async function executeTool(name, input) {
 				const lines = content.split("\n");
 				const start = Math.max(0, (input.offset || 1) - 1);
 				const end = input.limit != null ? start + input.limit : lines.length;
-				return lines.slice(start, end).map((l, i) => `${start + i + 1}\t${l}`).join("\n");
+				const result = lines.slice(start, end).map((l, i) => `${start + i + 1}\t${l}`).join("\n");
+				return truncate(result);
 			}
 			case "Write": {
+				if (isTestSpecPath(input.file_path)) {
+					const testname = path.basename(input.file_path, ".spec.ts");
+					fs.mkdirSync(PENDING_DIR, { recursive: true });
+					fs.writeFileSync(path.join(PENDING_DIR, testname + ".spec.ts"), input.content);
+					return { _isPending: true, testname, message: `Modifications enregistrées en attente de confirmation (${testname}.spec.ts).` };
+				}
 				fs.mkdirSync(path.dirname(input.file_path), { recursive: true });
 				fs.writeFileSync(input.file_path, input.content);
 				return "File written successfully.";
 			}
 			case "Edit": {
+				if (isTestSpecPath(input.file_path)) {
+					const testname = path.basename(input.file_path, ".spec.ts");
+					const pendingPath = path.join(PENDING_DIR, testname + ".spec.ts");
+					const sourcePath = fs.existsSync(pendingPath) ? pendingPath : input.file_path;
+					let content = fs.readFileSync(sourcePath, "utf-8");
+					if (!content.includes(input.old_string)) return "Error: old_string not found in file.";
+					content = input.replace_all
+						? content.split(input.old_string).join(input.new_string)
+						: content.replace(input.old_string, input.new_string);
+					fs.mkdirSync(PENDING_DIR, { recursive: true });
+					fs.writeFileSync(pendingPath, content);
+					return { _isPending: true, testname, message: `Modifications enregistrées en attente de confirmation (${testname}.spec.ts).` };
+				}
 				let content = fs.readFileSync(input.file_path, "utf-8");
 				if (!content.includes(input.old_string)) return "Error: old_string not found in file.";
 				content = input.replace_all
@@ -213,7 +246,7 @@ async function executeTool(name, input) {
 							if (stdout) parts.push(stdout);
 							if (stderr) parts.push("STDERR:\n" + stderr);
 							if (err && !stdout && !stderr) parts.push("ERROR: " + err.message);
-							resolve(parts.join("\n").trim() || "(no output)");
+							resolve(truncate(parts.join("\n").trim() || "(no output)"));
 						}
 					);
 				});
@@ -223,18 +256,19 @@ async function executeTool(name, input) {
 					const cwd = input.path || E2E_DIR;
 					const pat = input.pattern.replace(/"/g, '\\"');
 					exec(`find . -name "${pat}" 2>/dev/null | sort | head -200`, { cwd, timeout: 10000 },
-						(err, stdout) => resolve(stdout.trim() || "No files found.")
+						(err, stdout) => resolve(truncate(stdout.trim() || "No files found."))
 					);
 				});
 			}
 			case "LS": {
 				const dir = input.path || E2E_DIR;
 				const entries = fs.readdirSync(dir, { withFileTypes: true });
-				return entries.map(e => e.isDirectory() ? e.name + "/" : e.name).join("\n") || "(empty)";
+				return truncate(entries.map(e => e.isDirectory() ? e.name + "/" : e.name).join("\n") || "(empty)");
 			}
 			case "WebFetch": {
 				return new Promise((resolve) => {
-					const maxLen = input.max_length || 20000;
+					// Réduit à MAX_TOOL_OUTPUT au lieu de 20000 fixe
+					const maxLen = Math.min(input.max_length || MAX_TOOL_OUTPUT, MAX_TOOL_OUTPUT);
 					const lib = input.url.startsWith("https") ? https : http;
 					const doRequest = (url, redirects = 0) => {
 						if (redirects > 5) return resolve("Error: too many redirects");
@@ -267,6 +301,7 @@ async function executeTool(name, input) {
 				const media_type = mediaTypes[ext] || "image/png";
 				const data = fs.readFileSync(input.file_path).toString("base64");
 				return { _isImage: true, media_type, data };
+				// Note : pas de truncate ici, c'est du base64 binaire envoyé comme bloc image
 			}
 			default:
 				return `Unknown tool: ${name}`;
@@ -408,10 +443,16 @@ function startChatRun(message, images, sessionId, instructions) {
 				for (const block of content) {
 					if (block.type !== "tool_use") continue;
 					const result = await executeTool(block.name, block.input);
-					const toolResult = result?._isImage
-						? { type: "tool_result", tool_use_id: block.id, content: [{ type: "image", source: { type: "base64", media_type: result.media_type, data: result.data } }] }
-						: { type: "tool_result", tool_use_id: block.id, content: String(result) };
-					toolResults.push(toolResult);
+					let resultContent;
+					if (result?._isImage) {
+						resultContent = [{ type: "image", source: { type: "base64", media_type: result.media_type, data: result.data } }];
+					} else if (result?._isPending) {
+						pushEvent({ type: "pending", testname: result.testname });
+						resultContent = result.message;
+					} else {
+						resultContent = String(result);
+					}
+					toolResults.push({ type: "tool_result", tool_use_id: block.id, content: resultContent });
 				}
 				history.push({ role: "user", content: toolResults });
 			} else {
@@ -966,6 +1007,66 @@ http
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(fs.readFileSync(jsonPath, "utf-8"));
 			return;
+		}
+
+		if (req.method === "GET" && pathname === "/api/pending") {
+			fs.mkdirSync(PENDING_DIR, { recursive: true });
+			const files = fs.readdirSync(PENDING_DIR).filter(f => f.endsWith(".spec.ts"));
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(files.map(f => f.replace(".spec.ts", ""))));
+			return;
+		}
+
+		const pendingActionMatch = pathname.match(/^\/api\/pending\/([^/]+)\/(run|confirm|discard)$/);
+		if (pendingActionMatch) {
+			const testname = decodeURIComponent(pendingActionMatch[1]);
+			const action = pendingActionMatch[2];
+			const pendingFile = path.join(PENDING_DIR, testname + ".spec.ts");
+			if (!fs.existsSync(pendingFile)) { res.writeHead(404); res.end("Not found"); return; }
+
+			if (action === "confirm") {
+				fs.copyFileSync(pendingFile, path.join(TESTS_DIR, testname + ".spec.ts"));
+				fs.unlinkSync(pendingFile);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ ok: true }));
+				return;
+			}
+			if (action === "discard") {
+				fs.unlinkSync(pendingFile);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ ok: true }));
+				return;
+			}
+			if (action === "run") {
+				const tempName = `_pending_${testname}`;
+				const tempFile = path.join(TESTS_DIR, tempName + ".spec.ts");
+				fs.copyFileSync(pendingFile, tempFile);
+				const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+				const run = { lines: [], status: "running", clients: new Set() };
+				runs.set(runId, run);
+				const proc = spawn(
+					"npx",
+					["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=line", "--project=chromium", "--headed"],
+					{ cwd: E2E_DIR, env: { ...process.env, ...envLocal } }
+				);
+				const push = (data) => {
+					const text = data.toString();
+					run.lines.push(text);
+					for (const res of run.clients) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+				};
+				proc.stdout.on("data", push);
+				proc.stderr.on("data", push);
+				proc.on("close", (code) => {
+					try { fs.unlinkSync(tempFile); } catch {}
+					run.status = code === 0 ? "passed" : "failed";
+					const msg = `data: ${JSON.stringify({ done: true, status: run.status })}\n\n`;
+					for (const c of run.clients) { c.write(msg); c.end(); }
+					run.clients.clear();
+				});
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ runId }));
+				return;
+			}
 		}
 
 		const promptMatch = pathname.match(/^\/api\/prompt\/([^/]+)$/);
