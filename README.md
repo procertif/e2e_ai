@@ -24,6 +24,11 @@ ANTHROPIC_CLIENT_ID=<client-id OAuth Anthropic>
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
+Configurer le xprofile :
+```
+echo "xhost +local:" >> ~/.xprofile
+```
+
 ## Lancer les tests
 
 ```bash

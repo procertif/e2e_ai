@@ -336,6 +336,9 @@
 .chat-send-btn:hover:not(:disabled) { background: #0b5ed7; }
 .chat-send-btn:disabled { background: #c8d8fd; cursor: default; }
 
+.chat-stop-btn { background: #dc3545; pointer-events: auto; }
+.chat-stop-btn:hover { background: #bb2d3b; }
+
 .chat-hint {
   font-size: 0.75rem;
   color: #adb5bd;

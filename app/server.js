@@ -40,7 +40,7 @@ const envLocal = parseEnvFile(path.join(E2E_DIR, ".env"));
 
 const PORT = Number(envLocal.PORT || process.env.PORT || 3333);
 const ANTHROPIC_CLIENT_ID = envLocal.ANTHROPIC_CLIENT_ID || process.env.ANTHROPIC_CLIENT_ID || "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
+const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
 
 const runs = new Map();
@@ -313,7 +313,7 @@ async function executeTool(name, input) {
 	}
 }
 
-async function callClaudeStream(token, messages, onEvent, instructions) {
+async function callClaudeStream(token, messages, onEvent, instructions, signal) {
 	const systemBlocks = [
 		{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
 		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}. The source code of the tested application (Procertif) is at /home/procertif/www/.` },
@@ -345,6 +345,7 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 				"x-app": "cli",
 				"user-agent": "claude-cli/2.1.80 (external, cli)",
 			},
+			signal,
 		}, (res) => {
 			let buf = "";
 			let stopReason = "end_turn";
@@ -424,7 +425,7 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 
 function startChatRun(message, images, sessionId, instructions) {
 	const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-	const run = { events: [], status: "running", clients: new Set() };
+	const run = { events: [], status: "running", clients: new Set(), abort: null };
 	chatRuns.set(runId, run);
 
 	const pushEvent = (event) => {
@@ -455,41 +456,57 @@ function startChatRun(message, images, sessionId, instructions) {
 
 		const token = await getOAuthToken();
 		let continueLoop = true;
+		let stopped = false;
+		const controller = new AbortController();
+		run.abort = () => controller.abort();
 
-		while (continueLoop) {
-			const callStart = Date.now();
-			const { stopReason, content, usage } = await callClaudeStream(token, history, pushEvent, instructions);
-			const callDuration = Date.now() - callStart;
+		try {
+			while (continueLoop) {
+				const callStart = Date.now();
+				const { stopReason, content, usage } = await callClaudeStream(token, history, pushEvent, instructions, controller.signal);
+				const callDuration = Date.now() - callStart;
 
-			const toolsCalled = content.filter(b => b.type === "tool_use").map(b => ({ name: b.name, input: b.input }));
-			log.apiCalls.push({ index: log.apiCalls.length + 1, startedAt: new Date(callStart).toISOString(), durationMs: callDuration, usage, toolsCalled });
-			log.totals.apiCalls++;
-			log.totals.toolsCalled += toolsCalled.length;
-			for (const k of ["input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"]) {
-				log.totals[k] += usage[k] || 0;
-			}
-
-			history.push({ role: "assistant", content });
-
-			if (stopReason === "tool_use") {
-				const toolResults = [];
-				for (const block of content) {
-					if (block.type !== "tool_use") continue;
-					const result = await executeTool(block.name, block.input);
-					let resultContent;
-					if (result?._isImage) {
-						resultContent = [{ type: "image", source: { type: "base64", media_type: result.media_type, data: result.data } }];
-					} else if (result?._isPending) {
-						pushEvent({ type: "pending", testname: result.testname });
-						resultContent = result.message;
-					} else {
-						resultContent = String(result);
-					}
-					toolResults.push({ type: "tool_result", tool_use_id: block.id, content: resultContent });
+				const toolsCalled = content.filter(b => b.type === "tool_use").map(b => ({ name: b.name, input: b.input }));
+				log.apiCalls.push({ index: log.apiCalls.length + 1, startedAt: new Date(callStart).toISOString(), durationMs: callDuration, usage, toolsCalled });
+				log.totals.apiCalls++;
+				log.totals.toolsCalled += toolsCalled.length;
+				for (const k of ["input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"]) {
+					log.totals[k] += usage[k] || 0;
 				}
-				history.push({ role: "user", content: toolResults });
+
+				history.push({ role: "assistant", content });
+
+				if (stopReason === "tool_use") {
+					const toolResults = [];
+					for (const block of content) {
+						if (block.type !== "tool_use") continue;
+						const result = await executeTool(block.name, block.input);
+						let resultContent;
+						if (result?._isImage) {
+							resultContent = [{ type: "image", source: { type: "base64", media_type: result.media_type, data: result.data } }];
+						} else if (result?._isPending) {
+							pushEvent({ type: "pending", testname: result.testname });
+							resultContent = result.message;
+						} else {
+							resultContent = String(result);
+						}
+						toolResults.push({ type: "tool_result", tool_use_id: block.id, content: resultContent });
+					}
+					if (controller.signal.aborted) {
+						continueLoop = false;
+						stopped = true;
+					} else {
+						history.push({ role: "user", content: toolResults });
+					}
+				} else {
+					continueLoop = false;
+				}
+			}
+		} catch (err) {
+			if (err.name === "AbortError" || err.code === "ABORT_ERR") {
+				stopped = true;
 			} else {
-				continueLoop = false;
+				throw err;
 			}
 		}
 
@@ -538,7 +555,7 @@ function startChatRun(message, images, sessionId, instructions) {
 		} catch {}
 
 		run.status = "done";
-		pushEvent({ type: "done", status: "done", sessionId: runId });
+		pushEvent({ type: "done", status: stopped ? "stopped" : "done", sessionId: runId });
 		for (const res of run.clients) res.end();
 		run.clients.clear();
 		setTimeout(() => chatRuns.delete(runId), 5 * 60 * 1000);
@@ -1252,6 +1269,20 @@ http
 				res.writeHead(500);
 				res.end(err.message);
 			}
+			return;
+		}
+
+		const chatStopMatch = pathname.match(/^\/api\/chat-stop\/(.+)$/);
+		if (req.method === "POST" && chatStopMatch) {
+			const run = chatRuns.get(chatStopMatch[1]);
+			if (!run || typeof run.abort !== "function") {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			run.abort();
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ ok: true }));
 			return;
 		}
 
