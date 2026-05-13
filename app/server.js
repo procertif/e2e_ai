@@ -14,6 +14,7 @@ const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
 const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
 const SPECS_DIR = path.join(DATA_DIR, "specs");
 const PENDING_DIR = path.join(DATA_DIR, "pending");
+const CHAT_LOGS_DIR = path.join(DATA_DIR, "chat-logs");
 
 function isTestSpecPath(fp) {
 	return fp && fp.endsWith(".spec.ts") && fp.includes("/tests/") && !fp.includes("/pending/");
@@ -145,6 +146,7 @@ const TOOLS = [
 			},
 			required: ["file_path"],
 		},
+		cache_control: { type: "ephemeral", ttl: "1h" },
 	},
 ];
 
@@ -319,6 +321,7 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 	if (instructions && instructions.trim()) {
 		systemBlocks.push({ type: "text", text: instructions.trim() });
 	}
+	systemBlocks[systemBlocks.length - 1].cache_control = { type: "ephemeral", ttl: "1h" };
 	const body = Buffer.from(JSON.stringify({
 		model: ANTHROPIC_MODEL,
 		max_tokens: 8096,
@@ -349,6 +352,7 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 			let currentBlock = null;
 			let currentText = "";
 			let inputJson = "";
+			const usage = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
 
 			res.on("data", chunk => {
 				buf += chunk.toString();
@@ -390,8 +394,16 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 						currentBlock = null;
 					}
 
-					if (ev.type === "message_delta" && ev.delta?.stop_reason) {
-						stopReason = ev.delta.stop_reason;
+					if (ev.type === "message_start" && ev.message?.usage) {
+						const u = ev.message.usage;
+						usage.input_tokens = u.input_tokens || 0;
+						usage.cache_creation_input_tokens = u.cache_creation_input_tokens || 0;
+						usage.cache_read_input_tokens = u.cache_read_input_tokens || 0;
+					}
+
+					if (ev.type === "message_delta") {
+						if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+						if (ev.usage?.output_tokens) usage.output_tokens = ev.usage.output_tokens;
 					}
 
 					if (ev.type === "error") {
@@ -400,7 +412,7 @@ async function callClaudeStream(token, messages, onEvent, instructions) {
 				}
 			});
 
-			res.on("end", () => resolve({ stopReason, content: responseContent }));
+			res.on("end", () => resolve({ stopReason, content: responseContent, usage }));
 			res.on("error", reject);
 		});
 
@@ -422,6 +434,16 @@ function startChatRun(message, images, sessionId, instructions) {
 	};
 
 	(async () => {
+		const sessionStart = Date.now();
+		const log = {
+			runId,
+			startedAt: new Date(sessionStart).toISOString(),
+			endedAt: null,
+			durationMs: null,
+			apiCalls: [],
+			totals: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, apiCalls: 0, toolsCalled: 0 },
+		};
+
 		const history = (sessionId && chatHistories.get(sessionId)) || [];
 		const userContent = images && images.length > 0
 			? [
@@ -435,7 +457,18 @@ function startChatRun(message, images, sessionId, instructions) {
 		let continueLoop = true;
 
 		while (continueLoop) {
-			const { stopReason, content } = await callClaudeStream(token, history, pushEvent, instructions);
+			const callStart = Date.now();
+			const { stopReason, content, usage } = await callClaudeStream(token, history, pushEvent, instructions);
+			const callDuration = Date.now() - callStart;
+
+			const toolsCalled = content.filter(b => b.type === "tool_use").map(b => ({ name: b.name, input: b.input }));
+			log.apiCalls.push({ index: log.apiCalls.length + 1, startedAt: new Date(callStart).toISOString(), durationMs: callDuration, usage, toolsCalled });
+			log.totals.apiCalls++;
+			log.totals.toolsCalled += toolsCalled.length;
+			for (const k of ["input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"]) {
+				log.totals[k] += usage[k] || 0;
+			}
+
 			history.push({ role: "assistant", content });
 
 			if (stopReason === "tool_use") {
@@ -484,12 +517,40 @@ function startChatRun(message, images, sessionId, instructions) {
 			}
 		}
 
+		log.endedAt = new Date().toISOString();
+		log.durationMs = Date.now() - sessionStart;
+		log.messages = history.map(msg => ({
+			role: msg.role,
+			content: Array.isArray(msg.content)
+				? msg.content.map(b => {
+					if (b.type === "image") return { type: "image", media_type: b.source?.media_type };
+					if (b.type === "tool_result" && Array.isArray(b.content)) {
+						return { ...b, content: b.content.map(c => c.type === "image" ? { type: "image", media_type: c.source?.media_type } : c) };
+					}
+					return b;
+				})
+				: msg.content,
+		}));
+		try {
+			fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
+			const ts = new Date(sessionStart).toISOString().replace(/[:.]/g, "-").slice(0, 19);
+			fs.writeFileSync(path.join(CHAT_LOGS_DIR, `${ts}_${runId}.json`), JSON.stringify(log, null, 2), "utf-8");
+		} catch {}
+
 		run.status = "done";
 		pushEvent({ type: "done", status: "done", sessionId: runId });
 		for (const res of run.clients) res.end();
 		run.clients.clear();
 		setTimeout(() => chatRuns.delete(runId), 5 * 60 * 1000);
 	})().catch((err) => {
+		log.endedAt = new Date().toISOString();
+		log.durationMs = Date.now() - sessionStart;
+		log.error = err.message;
+		try {
+			fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
+			const ts = new Date(sessionStart).toISOString().replace(/[:.]/g, "-").slice(0, 19);
+			fs.writeFileSync(path.join(CHAT_LOGS_DIR, `${ts}_${runId}.json`), JSON.stringify(log, null, 2), "utf-8");
+		} catch {}
 		run.status = "error";
 		pushEvent({ type: "done", status: "error", error: err.message });
 		for (const res of run.clients) res.end();
@@ -1086,6 +1147,63 @@ http
 		if (req.method === "GET" && pathname === "/chat") {
 			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
 			res.end(fs.readFileSync(path.join(__dirname, "chat.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/logs") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "logs.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/logs.css") {
+			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "logs.css")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/api/chat-logs") {
+			try {
+				fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
+				const files = fs.readdirSync(CHAT_LOGS_DIR)
+					.filter(f => f.endsWith(".json"))
+					.sort()
+					.reverse();
+				const summaries = files.map(f => {
+					try {
+						const log = JSON.parse(fs.readFileSync(path.join(CHAT_LOGS_DIR, f), "utf-8"));
+						return {
+							filename: f,
+							startedAt: log.startedAt,
+							endedAt: log.endedAt,
+							durationMs: log.durationMs,
+							totals: log.totals,
+							messageCount: Array.isArray(log.messages) ? log.messages.filter(m => m.role === "user").length : 0,
+						};
+					} catch {
+						return { filename: f, startedAt: null, totals: null };
+					}
+				});
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(summaries));
+			} catch (err) {
+				res.writeHead(500);
+				res.end(err.message);
+			}
+			return;
+		}
+
+		const chatLogMatch = pathname.match(/^\/api\/chat-logs\/([^/]+)$/);
+		if (req.method === "GET" && chatLogMatch) {
+			const filename = path.basename(decodeURIComponent(chatLogMatch[1]));
+			const logPath = path.join(CHAT_LOGS_DIR, filename);
+			if (!logPath.startsWith(CHAT_LOGS_DIR) || !fs.existsSync(logPath)) {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(fs.readFileSync(logPath, "utf-8"));
 			return;
 		}
 
