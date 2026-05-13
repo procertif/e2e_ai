@@ -7,7 +7,7 @@ RUN npm ci
 RUN npx playwright install chromium --with-deps
 
 COPY app/ ./app/
-COPY playwright.config.ts ./
+COPY playwright.config.ts tsconfig.json ./
 
 RUN mkdir -p data/actionTest data/specs screenshots tests
 

@@ -8,6 +8,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ./app:/app/app
       - ./playwright.config.ts:/app/playwright.config.ts
+      - ./tsconfig.json:/app/tsconfig.json:ro
       - ./tests:/app/tests
       - ./test-results:/app/test-results
       - ./data:/app/data
