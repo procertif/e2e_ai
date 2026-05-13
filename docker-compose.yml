@@ -3,7 +3,7 @@ services:
     build: .
     network_mode: host
     environment:
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-:0}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ./app:/app/app

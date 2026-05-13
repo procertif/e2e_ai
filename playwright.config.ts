@@ -7,6 +7,7 @@ export default defineConfig({
 	reporter: "line",
 	use: {
 		baseURL: process.env.BASE_URL || "https://app.procertif.dev",
+		headless: process.env.HEADLESS !== "false",
 		trace: "off",
 		screenshot: "off",
 		ignoreHTTPSErrors: true,
