@@ -1173,6 +1173,34 @@ http
 			return;
 		}
 
+		if (req.method === "GET" && pathname === "/config") {
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "config.html")));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/api/config") {
+			const env = parseEnvFile(path.join(E2E_DIR, ".env"));
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(env));
+			return;
+		}
+
+		if (req.method === "POST" && pathname === "/api/config") {
+			readBody(req).then((data) => {
+				const lines = Object.entries(data)
+					.filter(([k]) => k.trim())
+					.map(([k, v]) => `${k.trim()}=${v}`);
+				fs.writeFileSync(path.join(E2E_DIR, ".env"), lines.join("\n") + "\n", "utf-8");
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ ok: true }));
+			}).catch(() => {
+				res.writeHead(400);
+				res.end("Bad request");
+			});
+			return;
+		}
+
 		if (req.method === "GET" && pathname === "/logs.css") {
 			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
 			res.end(fs.readFileSync(path.join(__dirname, "logs.css")));

@@ -13,6 +13,6 @@ services:
       - ./test-results:/app/test-results
       - ./data:/app/data
       - ./screenshots:/app/screenshots
-      - ./.env:/app/.env:ro
+      - ./.env:/app/.env
       - /home/procertif/www:/home/procertif/www:ro
       - ${HOME}/.claude:/root/.claude:ro
