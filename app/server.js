@@ -703,10 +703,8 @@ function startRun(filename) {
 		{
 			cwd: E2E_DIR,
 			env: { ...process.env, ...envLocal },
-			detached: true,
 		},
 	);
-	proc.unref();
 
 	const push = (data) => {
 		const text = data.toString();
@@ -720,7 +718,7 @@ function startRun(filename) {
 	proc.stderr.on("data", push);
 
 	proc.on("close", (code) => {
-		try { process.kill(-proc.pid, "SIGTERM"); } catch {}
+		exec("pkill -f 'chrome.*--remote-debugging' 2>/dev/null || true", () => {});
 		run.status = code === 0 ? "passed" : "failed";
 		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
