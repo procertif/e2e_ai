@@ -718,14 +718,6 @@ function startRun(filename) {
 	proc.stderr.on("data", push);
 
 	proc.on("close", (code) => {
-		try {
-			fs.readdirSync("/proc").filter(d => /^\d+$/.test(d)).forEach(pid => {
-				try {
-					const cmd = fs.readFileSync(`/proc/${pid}/cmdline`, "utf8");
-					if (cmd.includes("ms-playwright")) process.kill(parseInt(pid), "SIGKILL");
-				} catch {}
-			});
-		} catch {}
 		run.status = code === 0 ? "passed" : "failed";
 		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
