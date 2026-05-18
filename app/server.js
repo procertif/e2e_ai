@@ -718,7 +718,7 @@ function startRun(filename) {
 	proc.stderr.on("data", push);
 
 	proc.on("close", (code) => {
-		exec("pkill -f 'chrome.*--remote-debugging' 2>/dev/null || true", () => {});
+		exec("pgrep -f ms-playwright | xargs -r kill -9 2>/dev/null || true", () => {});
 		run.status = code === 0 ? "passed" : "failed";
 		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
