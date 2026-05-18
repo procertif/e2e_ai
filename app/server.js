@@ -699,7 +699,7 @@ function startRun(filename) {
 
 	const proc = spawn(
 		"npx",
-		["playwright", "test", `tests/${filename}`, "--reporter=line", "--project=chromium", "--headed"],
+		["playwright", "test", `tests/${filename}`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
 		{
 			cwd: E2E_DIR,
 			env: { ...process.env, ...envLocal },
@@ -1124,7 +1124,7 @@ http
 				runs.set(runId, run);
 				const proc = spawn(
 					"npx",
-					["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=line", "--project=chromium", "--headed"],
+					["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
 					{ cwd: E2E_DIR, env: { ...process.env, ...envLocal } }
 				);
 				const push = (data) => {
