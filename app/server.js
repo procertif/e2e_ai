@@ -1186,12 +1186,40 @@ http
 			return;
 		}
 
+		if (req.method === "GET" && pathname === "/api/lang") {
+			const lang = (envLocal.LANG || process.env.LANG || "en").toLowerCase().startsWith("fr") ? "fr" : "en";
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ lang }));
+			return;
+		}
+
+		const i18nMatch = pathname.match(/^\/i18n\/(en|fr)\.json$/);
+		if (req.method === "GET" && i18nMatch) {
+			const langFile = path.join(__dirname, "i18n", i18nMatch[1] + ".json");
+			if (!fs.existsSync(langFile)) {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+			res.end(fs.readFileSync(langFile, "utf-8"));
+			return;
+		}
+
+		if (req.method === "GET" && pathname === "/i18n.js") {
+			res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+			res.end(fs.readFileSync(path.join(__dirname, "i18n.js"), "utf-8"));
+			return;
+		}
+
 		if (req.method === "POST" && pathname === "/api/config") {
 			readBody(req).then((data) => {
 				const lines = Object.entries(data)
 					.filter(([k]) => k.trim())
 					.map(([k, v]) => `${k.trim()}=${v}`);
 				fs.writeFileSync(path.join(E2E_DIR, ".env"), lines.join("\n") + "\n", "utf-8");
+				Object.keys(envLocal).forEach(k => delete envLocal[k]);
+				Object.assign(envLocal, data);
 				res.writeHead(200, { "Content-Type": "application/json" });
 				res.end(JSON.stringify({ ok: true }));
 			}).catch(() => {
