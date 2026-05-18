@@ -434,17 +434,17 @@ function startChatRun(message, images, sessionId, instructions) {
 		for (const res of run.clients) res.write(`data: ${text}\n\n`);
 	};
 
-	(async () => {
-		const sessionStart = Date.now();
-		const log = {
-			runId,
-			startedAt: new Date(sessionStart).toISOString(),
-			endedAt: null,
-			durationMs: null,
-			apiCalls: [],
+	const sessionStart = Date.now();
+	const log = {
+		runId,
+		startedAt: new Date(sessionStart).toISOString(),
+		endedAt: null,
+		durationMs: null,
+		apiCalls: [],
 			totals: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, apiCalls: 0, toolsCalled: 0 },
 		};
 
+	(async () => {
 		const history = (sessionId && chatHistories.get(sessionId)) || [];
 		const userContent = images && images.length > 0
 			? [
