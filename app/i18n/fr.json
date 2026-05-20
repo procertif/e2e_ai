@@ -9,7 +9,7 @@
 
   "sidebar_label": "Test Runner E2E",
 
-  "panel_available_title": "Tests disponibles !!!!!!!",
+  "panel_available_title": "Tests disponibles !!!!!!!!",
   "panel_tab_tests": "Tests",
   "panel_tab_groups": "Groupes",
   "search_available_placeholder": "Rechercher…",
@@ -62,7 +62,7 @@
   "btn_new_group": "+ Nouveau",
   "groups_empty_message": "Créez votre premier groupe",
   "search_test_groups_placeholder": "Rechercher un test…",
-  "panel_tests_available_title": "Tests disponibles !!!!!!!!",
+  "panel_tests_available_title": "Tests disponibles !!!!!!!!!",
 
   "modal_assign_groups_title": "Assigner à des groupes",
   "modal_delete_group_title": "Supprimer le groupe",
