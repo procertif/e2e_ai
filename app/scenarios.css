@@ -139,16 +139,6 @@
   border-radius: 6px;
 }
 
-.prompt-img {
-  display: block;
-  max-width: 100%;
-  max-height: 320px;
-  border-radius: 6px;
-  margin: 0.4rem 0;
-  object-fit: contain;
-  border: 1px solid var(--border, #e2e8f0);
-}
-
 .copy-btn {
   display: inline-flex;
   align-items: center;
