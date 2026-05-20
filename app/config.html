@@ -75,48 +75,6 @@
       border-top: 1px solid #f1f3f5;
       margin: 0;
     }
-    .custom-vars-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.75rem;
-    }
-    .custom-vars-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: #adb5bd;
-    }
-    .custom-var-row {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-    .custom-var-row .config-input-key {
-      flex: 0 0 200px;
-    }
-    .custom-var-row .config-input-val {
-      flex: 1;
-    }
-    .btn-remove-var {
-      flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 1.5px solid #dc3545;
-      background: none;
-      color: #dc3545;
-      font-size: 1.1rem;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.12s, color 0.12s;
-    }
-    .btn-remove-var:hover { background: #dc3545; color: #fff; }
     .config-footer {
       padding: 1rem 1.5rem;
       border-top: 1px solid #e9ecef;
@@ -220,18 +178,6 @@
           <!-- known vars injected by JS -->
         </div>
 
-        <hr class="config-divider" />
-
-        <div class="config-section-body" id="custom-vars-wrapper">
-          <div class="custom-vars-header">
-            <span class="custom-vars-title" data-i18n="config_custom_vars_title">Variables personnalisées</span>
-            <button class="btn btn-sm btn-outline-primary" id="btn-add-var" type="button" data-i18n="btn_add_var">+ Ajouter</button>
-          </div>
-          <div id="custom-vars-list">
-            <!-- custom rows injected by JS -->
-          </div>
-        </div>
-
         <div class="config-footer">
           <button class="btn btn-primary btn-sm" id="btn-save" type="button" data-i18n="btn_save_config">Sauvegarder</button>
           <span class="save-status" id="save-status"></span>
@@ -248,13 +194,11 @@ const KNOWN = [
   { key: "BASE_URL",            labelKey: "known_var_base_url_label",       descKey: "known_var_base_url_desc" },
   { key: "TEST_OTP",            labelKey: "known_var_otp_label",            descKey: "known_var_otp_desc" },
   { key: "PORT",                labelKey: "known_var_port_label",           descKey: "known_var_port_desc",           warning: true },
-  { key: "ANTHROPIC_CLIENT_ID", labelKey: "known_var_anthropic_id_label",   descKey: "known_var_anthropic_id_desc" },
+  { key: "ANTHROPIC_CLIENT_ID", labelKey: "known_var_anthropic_id_label",   descKey: "known_var_anthropic_id_desc", secret: true },
   { key: "ANTHROPIC_MODEL",     labelKey: "known_var_anthropic_model_label", descKey: "known_var_anthropic_model_desc" },
   { key: "LANG",                labelKey: "known_var_lang_label",           descKey: "known_var_lang_desc",
     type: "select", optKeys: [["en", "known_var_lang_opt_en"], ["fr", "known_var_lang_opt_fr"]] },
 ];
-
-let customVars = [];
 
 async function load() {
   const T = window.t || (k => k);
@@ -275,6 +219,8 @@ async function load() {
         `<option value="${optVal}"${val === optVal || (!val && optVal === "en") ? " selected" : ""}>${escHtml(T(optKey))}</option>`
       ).join("");
       inputHtml = `<select class="config-input" data-key="${v.key}">${opts}</select>`;
+    } else if (v.secret) {
+      inputHtml = `<input type="password" class="config-input" data-key="${v.key}" value="${escHtml(val)}" autocomplete="off" />`;
     } else {
       inputHtml = `<input type="text" class="config-input" data-key="${v.key}" value="${escHtml(val)}" />`;
     }
@@ -289,48 +235,7 @@ async function load() {
     knownContainer.appendChild(row);
   }
 
-  customVars = Object.entries(env)
-    .filter(([k]) => !knownKeys.has(k))
-    .map(([k, v]) => ({ k, v }));
-
-  renderCustomVars();
 }
-
-function renderCustomVars() {
-  const T = window.t || (k => k);
-  const list = document.getElementById("custom-vars-list");
-  list.innerHTML = "";
-  customVars.forEach((item, idx) => {
-    const row = document.createElement("div");
-    row.className = "custom-var-row";
-    row.innerHTML = `
-      <input type="text" class="config-input config-input-key" placeholder="${T('config_var_key_placeholder')}" value="${escHtml(item.k)}" data-idx="${idx}" data-part="k" />
-      <input type="text" class="config-input config-input-val" placeholder="${T('config_var_val_placeholder')}" value="${escHtml(item.v)}" data-idx="${idx}" data-part="v" />
-      <button class="btn-remove-var" data-idx="${idx}" title="${T('btn_remove_var_title')}">×</button>
-    `;
-    list.appendChild(row);
-  });
-
-  list.querySelectorAll("input").forEach(inp => {
-    inp.addEventListener("input", () => {
-      const idx = Number(inp.dataset.idx);
-      customVars[idx][inp.dataset.part] = inp.value;
-    });
-  });
-  list.querySelectorAll(".btn-remove-var").forEach(btn => {
-    btn.addEventListener("click", () => {
-      customVars.splice(Number(btn.dataset.idx), 1);
-      renderCustomVars();
-    });
-  });
-}
-
-document.getElementById("btn-add-var").addEventListener("click", () => {
-  customVars.push({ k: "", v: "" });
-  renderCustomVars();
-  const inputs = document.querySelectorAll("#custom-vars-list .config-input-key");
-  if (inputs.length) inputs[inputs.length - 1].focus();
-});
 
 document.getElementById("btn-save").addEventListener("click", async () => {
   const T = window.t || (k => k);
@@ -341,12 +246,9 @@ document.getElementById("btn-save").addEventListener("click", async () => {
   status.className = "save-status";
 
   const data = {};
-  document.querySelectorAll("#known-vars input[data-key]").forEach(inp => {
+  document.querySelectorAll("#known-vars [data-key]").forEach(inp => {
     if (inp.value.trim() !== "") data[inp.dataset.key] = inp.value.trim();
   });
-  for (const { k, v } of customVars) {
-    if (k.trim()) data[k.trim()] = v;
-  }
 
   try {
     const res = await fetch("/api/config", {

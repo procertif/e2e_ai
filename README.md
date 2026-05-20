@@ -20,12 +20,24 @@ Créer un fichier `.env` à la racine :
 BASE_URL=https://app.procertif.dev
 TEST_OTP=444444
 PORT=3333
+HEADLESS=true
+LANG=fr
 ANTHROPIC_CLIENT_ID=<client-id OAuth Anthropic>
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
-Configurer le xprofile :
-```
+| Variable | Défaut | Description |
+|----------|--------|-------------|
+| `BASE_URL` | `https://app.procertif.dev` | URL de l'application cible |
+| `TEST_OTP` | `444444` | Code OTP pour l'authentification magic-code |
+| `PORT` | `3333` | Port du serveur web (redémarrage requis) |
+| `HEADLESS` | `true` | `false` pour lancer Chromium en mode fenêtré |
+| `LANG` | `en` | Langue de l'interface : `fr` ou `en` |
+| `ANTHROPIC_CLIENT_ID` | — | Client ID OAuth pour l'API Claude |
+| `ANTHROPIC_MODEL` | — | Modèle Claude utilisé (ex : `claude-sonnet-4-6`) |
+
+Configurer le xprofile (mode headed) :
+```bash
 echo "xhost +local:" >> ~/.xprofile
 ```
 
@@ -41,7 +53,7 @@ npx playwright test cas1-quiz.spec.ts
 
 ## Interface web (Test Runner UI)
 
-Un serveur Node.js expose une UI à `http://localhost:3333` pour lancer les tests sans passer par le CLI.
+Un serveur Node.js expose une UI à `http://localhost:3333` pour lancer et gérer les tests sans passer par le CLI.
 
 ```bash
 npm run server
@@ -102,10 +114,24 @@ Le conteneur utilise le réseau hôte et monte les dossiers `app/`, `tests/`, `d
 - Interface de chat intégrée pour interagir avec Claude
 - Génère et modifie des tests via des prompts en langage naturel directement depuis l'UI
 - **Outils disponibles** : Read, Write, Edit, Bash, Glob, LS, WebFetch, ReadImage — Claude peut lire et écrire des fichiers du projet
+- **Appels d'outils interleaved** : les pills d'outils s'affichent à l'endroit exact où Claude les a utilisés dans le flux de la réponse, pas tous regroupés en tête de message
 - **Instructions globales** : un panneau dépliable permet de définir des consignes appliquées automatiquement à chaque message (ex : *Toujours prendre un screenshot entre chaque action*), persistées en `localStorage`
-- **Support images** : possibilité de joindre des captures d'écran au message
-- **Historique** : jusqu'à 50 sessions de chat conservées en mémoire
+- **Support images** : possibilité de joindre des captures d'écran au message (coller, glisser-déposer, bouton pièce jointe)
 - **Sauvegarde de conversation** : bouton "Sauvegarder" dans le header, ouvre une modale pour nommer le fichier et l'enregistre au format JSON dans `tests/prompt/`
+- **Bouton Stop** : interrompt une génération en cours
+
+### Logs Chat (`/logs`)
+
+- Historique de toutes les sessions de chat avec l'IA
+- Affiche pour chaque session : tokens consommés (input / output / cache), nombre d'appels API
+- Vue détaillée par session : liste des appels API avec modèle, durée, tokens, et le contenu complet des messages échangés
+
+### Configuration (`/config`)
+
+- Interface de gestion du fichier `.env` directement depuis le navigateur
+- Variables connues avec libellé et description
+- Variables personnalisées (clé/valeur libres) avec ajout/suppression dynamique
+- Bouton **Sauvegarder** — les variables `PORT` nécessitent un redémarrage du serveur
 
 ## URLs
 
@@ -118,17 +144,23 @@ Le conteneur utilise le réseau hôte et monte les dossiers `app/`, `tests/`, `d
 | `http://localhost:3333/groups` | Gestion des groupes |
 | `http://localhost:3333/scenarios` | Scénarios Gherkin et tests en attente |
 | `http://localhost:3333/chat` | Chat IA |
+| `http://localhost:3333/logs` | Logs des sessions chat |
+| `http://localhost:3333/config` | Configuration `.env` |
 
 ## Structure
 
 ```
 app/                        # Test Runner UI
   server.js                 # Serveur HTTP (Node.js, port 3333)
-  index.html / index.css    # Page principale
+  index.html / index.css    # Page principale (test runner)
   screenshots.html / .css   # Visionneuse de screenshots
   groups.html / groups.css  # Gestion des groupes
   scenarios.html / .css     # Scénarios Gherkin + workflow pending
   chat.html / chat.css      # Interface chat IA
+  logs.html / logs.css      # Historique des sessions chat
+  config.html               # Configuration .env
+  i18n/                     # Traductions (en.json, fr.json)
+  i18n.js                   # Chargeur i18n côté client
 
 tests/                      # Specs Playwright (gitignorées)
   cas1-quiz.spec.ts
