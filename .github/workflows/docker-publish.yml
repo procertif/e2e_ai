@@ -27,4 +27,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/benjamindegert/e2e_ai:latest
+          tags: ghcr.io/procertif/e2e_ai:latest
