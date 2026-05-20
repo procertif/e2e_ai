@@ -321,6 +321,23 @@
     });
   }
 
+  function contentToHtml(content) {
+    if (typeof content === 'string') return escHtml(content);
+    if (!Array.isArray(content)) return escHtml(JSON.stringify(content));
+    return content.map(block => {
+      if (block.type === 'text') return `<span>${escHtml(block.text || '')}</span>`;
+      if (block.type === 'image' && block.source?.type === 'base64')
+        return `<img src="data:${block.source.media_type};base64,${block.source.data}" class="prompt-img" />`;
+      return '';
+    }).join('');
+  }
+
+  function contentToText(content) {
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+    return content.filter(b => b.type === 'text').map(b => b.text || '').join('\n');
+  }
+
   async function loadPrompt(testKey) {
     const promptEl = document.getElementById('scenario-prompt');
     const bodyEl = document.getElementById('prompt-body');
@@ -330,21 +347,17 @@
       if (!res.ok) throw new Error();
       allMessages = await res.json();
       promptEl.style.display = '';
-      bodyEl.innerHTML = allMessages.map((m, i) => {
-        const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-        return `
-          <div class="prompt-message-wrap">
-            <div class="prompt-message" id="prompt-msg-${i}">${escHtml(text)}</div>
-            <button class="copy-btn copy-btn--msg" data-index="${i}" title="${escHtml(window.t('btn_copy'))}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg>
-            </button>
-          </div>`;
-      }).join('');
+      bodyEl.innerHTML = allMessages.map((m, i) => `
+        <div class="prompt-message-wrap">
+          <div class="prompt-message" id="prompt-msg-${i}">${contentToHtml(m.content)}</div>
+          <button class="copy-btn copy-btn--msg" data-index="${i}" title="${escHtml(window.t('btn_copy'))}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/></svg>
+          </button>
+        </div>`).join('');
 
       bodyEl.querySelectorAll('.copy-btn--msg').forEach(btn => {
         btn.addEventListener('click', () => {
-          const m = allMessages[parseInt(btn.dataset.index)];
-          copyText(typeof m.content === 'string' ? m.content : JSON.stringify(m.content), btn);
+          copyText(contentToText(allMessages[parseInt(btn.dataset.index)].content), btn);
         });
       });
     } catch {
@@ -358,7 +371,7 @@
     };
 
     document.getElementById('btn-copy-all-prompt').addEventListener('click', () => {
-      const all = allMessages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n\n---\n\n');
+      const all = allMessages.map(m => contentToText(m.content)).filter(Boolean).join('\n\n---\n\n');
       copyText(all, document.getElementById('btn-copy-all-prompt'));
     });
   }
