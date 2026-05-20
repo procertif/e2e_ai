@@ -331,7 +331,7 @@
       allMessages = await res.json();
       promptEl.style.display = '';
       bodyEl.innerHTML = allMessages.map((m, i) => {
-        const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        const text = typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.filter(b => b.type === 'text').map(b => b.text || '').join('\n') : JSON.stringify(m.content);
         return `
           <div class="prompt-message-wrap">
             <div class="prompt-message" id="prompt-msg-${i}">${escHtml(text)}</div>
@@ -344,7 +344,8 @@
       bodyEl.querySelectorAll('.copy-btn--msg').forEach(btn => {
         btn.addEventListener('click', () => {
           const m = allMessages[parseInt(btn.dataset.index)];
-          copyText(typeof m.content === 'string' ? m.content : JSON.stringify(m.content), btn);
+          const text = typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.filter(b => b.type === 'text').map(b => b.text || '').join('\n') : '';
+          copyText(text, btn);
         });
       });
     } catch {
@@ -358,7 +359,7 @@
     };
 
     document.getElementById('btn-copy-all-prompt').addEventListener('click', () => {
-      const all = allMessages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n\n---\n\n');
+      const all = allMessages.map(m => typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.filter(b => b.type === 'text').map(b => b.text || '').join('\n') : '').filter(Boolean).join('\n\n---\n\n');
       copyText(all, document.getElementById('btn-copy-all-prompt'));
     });
   }
