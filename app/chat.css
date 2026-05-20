@@ -248,8 +248,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  margin-top: 0.35rem;
   margin-bottom: 0.5rem;
 }
+
+.msg-bubble--assistant > .msg-content + .tool-pills { margin-top: 0.5rem; }
 
 .tool-pill {
   display: inline-flex;

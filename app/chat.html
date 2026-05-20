@@ -195,7 +195,10 @@ Dans les fichiers de test Playwright, ajoute un commentaire structuré avant cha
 // ACTION: <description courte en français>
 Ne commente pas les screenshots, les déclarations de variables, la configuration ni les utilitaires (mkdirSync, setTimeout…).
 Ce balisage permet de générer un fichier JSON listant les étapes du test dans l'ordre pour pouvoir les modifier facilement.
-Tu dois toujours générer ce json quand tu génères un test`;
+Tu dois toujours générer ce json quand tu génères un test. Le json doit être dans /app/data/actionTest.
+Tu dois également générer un fichier .md dans /app/data/specs pour stocker le scénario au format naturel.
+Tu dois aussi générer un autre json dans /app/data/promptTest qui sauvegarde la conversation qu'il y a eu pour écrire le test.
+`;
 
   function loadInstructions() {
     const saved = localStorage.getItem('procertif_instructions');
@@ -223,9 +226,14 @@ Tu dois toujours générer ce json quand tu génères un test`;
     localStorage.setItem('procertif_instructions', instructionsInput.value);
     updateInstructionsBadge();
   });
-  let chatMessages = []; // { role, content, images?, tools? }
+  let chatMessages = []; // { role, content, images?, tools?, blocks? }
   let currentTools = [];
   let pendingImages = []; // { data, media_type, preview }
+  let currentBubbleEl = null;
+  let currentTextEl = null;
+  let currentSegmentText = '';
+  let currentToolPillsEl = null;
+  let messageBlocks = [];
 
   const messagesEl  = document.getElementById('chat-messages');
   const inputEl     = document.getElementById('chat-input');
@@ -395,6 +403,11 @@ Tu dois toujours générer ce json quand tu génères un test`;
     chatMessages = [];
     currentTools = [];
     pendingImages = [];
+    currentBubbleEl = null;
+    currentTextEl = null;
+    currentSegmentText = '';
+    currentToolPillsEl = null;
+    messageBlocks = [];
     renderImagePreviews();
     localStorage.removeItem('procertif_chat');
     messagesEl.innerHTML = `
@@ -416,9 +429,42 @@ Tu dois toujours générer ce json quand tu génères un test`;
     if (msg.role === 'user') {
       appendUserMessage(msg.content, msg.images || []);
     } else {
-      const div = appendAssistantBubble();
-      for (const t of (msg.tools || [])) addToolPill(div, t.name, t.input);
-      renderText(div, msg.content, true);
+      appendAssistantBubble();
+      const bubble = currentBubbleEl;
+      if (msg.blocks && msg.blocks.length > 0) {
+        let pillsEl = null;
+        for (const block of msg.blocks) {
+          if (block.type === 'tool') {
+            if (!pillsEl) {
+              pillsEl = document.createElement('div');
+              pillsEl.className = 'tool-pills';
+              bubble.appendChild(pillsEl);
+            }
+            pillsEl.appendChild(makeToolPillEl(block.name, block.input));
+          } else {
+            pillsEl = null;
+            if (block.text) {
+              const el = document.createElement('div');
+              el.className = 'msg-content';
+              el.innerHTML = marked.parse(block.text);
+              bubble.appendChild(el);
+            }
+          }
+        }
+      } else {
+        if (msg.tools && msg.tools.length > 0) {
+          const pillsEl = document.createElement('div');
+          pillsEl.className = 'tool-pills';
+          bubble.appendChild(pillsEl);
+          for (const t of msg.tools) pillsEl.appendChild(makeToolPillEl(t.name, t.input));
+        }
+        if (msg.content) {
+          const el = document.createElement('div');
+          el.className = 'msg-content';
+          el.innerHTML = marked.parse(msg.content);
+          bubble.appendChild(el);
+        }
+      }
     }
   }
 
@@ -478,19 +524,25 @@ Tu dois toujours générer ce json quand tu génères un test`;
   function appendAssistantBubble() {
     const div = document.createElement('div');
     div.className = 'chat-message chat-message--assistant';
-    div.innerHTML = `
-      <div class="msg-bubble msg-bubble--assistant">
-        <div class="tool-pills" id="tool-pills-current" style="display:none;"></div>
-        <div class="msg-content" id="msg-content-current"></div>
-      </div>`;
+    div.innerHTML = `<div class="msg-bubble msg-bubble--assistant"></div>`;
     messagesEl.appendChild(div);
+    currentBubbleEl = div.querySelector('.msg-bubble');
+    currentTextEl = null;
+    currentSegmentText = '';
+    currentToolPillsEl = null;
+    messageBlocks = [];
     scrollBottom();
     return div;
   }
 
   function renderText(msgEl, text, done) {
-    const content = msgEl.querySelector('.msg-content');
-    if (!content) return;
+    let content = msgEl.querySelector('.msg-content');
+    if (!content) {
+      content = document.createElement('div');
+      content.className = 'msg-content';
+      const bubble = msgEl.querySelector('.msg-bubble');
+      if (bubble) bubble.appendChild(content);
+    }
     content.innerHTML = text ? marked.parse(text) : '';
     if (!done) {
       const cursor = document.createElement('span');
@@ -501,18 +553,20 @@ Tu dois toujours générer ce json quand tu génères un test`;
     scrollBottom();
   }
 
-  function addToolPill(msgEl, toolName, inputData) {
-    const pillsEl = msgEl.querySelector('.tool-pills');
-    if (!pillsEl) return;
-    pillsEl.style.display = 'flex';
-
+  function makeToolPillEl(toolName, inputData) {
     const label = formatToolLabel(toolName, inputData);
     const cls   = toolPillClass(toolName);
     const pill  = document.createElement('span');
     pill.className = `tool-pill tool-pill--${cls}`;
     pill.title = JSON.stringify(inputData, null, 2);
     pill.textContent = label;
-    pillsEl.appendChild(pill);
+    return pill;
+  }
+
+  function addToolPill(msgEl, toolName, inputData) {
+    const pillsEl = msgEl.querySelector('.tool-pills');
+    if (!pillsEl) return;
+    pillsEl.appendChild(makeToolPillEl(toolName, inputData));
   }
 
   function formatToolLabel(name, input) {
@@ -594,8 +648,7 @@ Tu dois toujours générer ce json quand tu génères un test`;
       currentRunId = runId;
 
       thinkingEl.remove();
-      const msgEl  = appendAssistantBubble();
-      let accText  = '';
+      const msgEl = appendAssistantBubble();
 
       const es = new EventSource('/api/chat-stream/' + runId);
 
@@ -604,13 +657,36 @@ Tu dois toujours générer ce json quand tu génères un test`;
         try { event = JSON.parse(evt.data); } catch { return; }
 
         if (event.type === 'delta') {
-          accText += event.text;
-          renderText(msgEl, accText, false);
+          currentSegmentText += event.text;
+          currentToolPillsEl = null;
+          if (!currentTextEl) {
+            currentTextEl = document.createElement('div');
+            currentTextEl.className = 'msg-content';
+            currentBubbleEl.appendChild(currentTextEl);
+          }
+          currentTextEl.innerHTML = marked.parse(currentSegmentText);
+          const cursor = document.createElement('span');
+          cursor.className = 'typing-cursor';
+          cursor.textContent = '▋';
+          currentTextEl.appendChild(cursor);
+          scrollBottom();
           return;
         }
 
         if (event.type === 'tool_start') {
-          addToolPill(msgEl, event.name, event.input || null);
+          if (currentTextEl) {
+            currentTextEl.innerHTML = marked.parse(currentSegmentText);
+            if (currentSegmentText) messageBlocks.push({ type: 'text', text: currentSegmentText });
+            currentSegmentText = '';
+            currentTextEl = null;
+          }
+          if (!currentToolPillsEl) {
+            currentToolPillsEl = document.createElement('div');
+            currentToolPillsEl.className = 'tool-pills';
+            currentBubbleEl.appendChild(currentToolPillsEl);
+          }
+          currentToolPillsEl.appendChild(makeToolPillEl(event.name, event.input || null));
+          messageBlocks.push({ type: 'tool', name: event.name, input: event.input || null });
           currentTools.push({ name: event.name, input: event.input || null });
           return;
         }
@@ -626,11 +702,25 @@ Tu dois toujours générer ce json quand tu génères un test`;
 
         if (event.type === 'done') {
           if (event.sessionId) sessionId = event.sessionId;
-          const finalText = event.status === 'error'
-            ? (accText || `*(Erreur : ${event.error || 'inconnue'})*`)
-            : (accText || '*(Aucune réponse)*');
-          renderText(msgEl, finalText, true);
-          chatMessages.push({ role: 'assistant', content: finalText, tools: [...currentTools] });
+          const isError = event.status === 'error';
+          let finalSegment = currentSegmentText;
+          if (isError && !finalSegment) finalSegment = `*(Erreur : ${event.error || 'inconnue'})*`;
+          if (finalSegment) {
+            if (!currentTextEl) {
+              currentTextEl = document.createElement('div');
+              currentTextEl.className = 'msg-content';
+              currentBubbleEl.appendChild(currentTextEl);
+            }
+            currentTextEl.innerHTML = marked.parse(finalSegment);
+            messageBlocks.push({ type: 'text', text: finalSegment });
+          } else if (!messageBlocks.length) {
+            const el = document.createElement('div');
+            el.className = 'msg-content';
+            el.innerHTML = marked.parse('*(Aucune réponse)*');
+            currentBubbleEl.appendChild(el);
+          }
+          const fullText = messageBlocks.filter(b => b.type === 'text').map(b => b.text).join('');
+          chatMessages.push({ role: 'assistant', content: fullText, tools: [...currentTools], blocks: [...messageBlocks] });
           saveChatState();
           es.close();
           setStreaming(false);
@@ -638,7 +728,14 @@ Tu dois toujours générer ce json quand tu génères un test`;
       };
 
       es.onerror = () => {
-        renderText(msgEl, accText || '*(Erreur de connexion)*', true);
+        if (currentTextEl && currentSegmentText) {
+          currentTextEl.innerHTML = marked.parse(currentSegmentText);
+        } else if (currentBubbleEl && !currentBubbleEl.querySelector('.msg-content')) {
+          const el = document.createElement('div');
+          el.className = 'msg-content';
+          el.innerHTML = marked.parse('*(Erreur de connexion)*');
+          currentBubbleEl.appendChild(el);
+        }
         es.close();
         setStreaming(false);
       };
