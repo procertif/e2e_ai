@@ -85,6 +85,16 @@
   "btn_remove_from_group_title": "Remove from group",
   "assign_btn_label": "— Assign —",
 
+  "modal_rename_test_title": "Rename test",
+  "test_alias_label": "Display name",
+  "test_alias_placeholder": "Name displayed in the interface…",
+  "test_alias_hint": "The test file is not renamed. Leave empty to revert to the original name.",
+  "modal_delete_test_title": "Delete test",
+  "test_delete_confirm_prefix": "Delete",
+  "test_delete_warning": "Permanently deletes the test file and all its associated data (screenshots, actions, spec, logs).",
+  "btn_test_rename_title": "Rename",
+  "btn_test_delete_title": "Delete",
+
   "scenarios_page_title": "Scenarios",
   "search_scenarios_placeholder": "Search…",
   "scenario_empty_message": "Select a test to view its scenario",

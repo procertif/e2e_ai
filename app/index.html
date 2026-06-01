@@ -193,7 +193,7 @@
     const filtered = queryTokens.length === 0
       ? allTests
       : allTests.filter(t => {
-          const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+          const nameTokens = (t.alias || t.name).toLowerCase().split(/[\s\-]+/).filter(Boolean);
           return queryTokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
         });
 
@@ -205,7 +205,7 @@
       return `
         <div class="avail-item${isQueued ? ' is-queued' : ''}" data-filename="${t.filename}">
           <div class="avail-item-info">
-            <p class="test-name">${t.name}</p>
+            <p class="test-name">${t.alias || t.name}</p>
             <span class="badge-type ${badgeClass(t.type)}">${t.typeLabel}</span>
           </div>
           ${isQueued
@@ -318,7 +318,7 @@
           <div class="d-flex align-items-center gap-3">
             <span class="drag-handle" title="${escHtml(window.t('drag_handle_title'))}">⠿</span>
             <div>
-              <p class="test-name">${test.name}</p>
+              <p class="test-name">${test.alias || test.name}</p>
               <div class="test-badges">
                 <span class="badge-type ${badgeClass(test.type)}">${test.typeLabel}</span>
                 ${test.estimatedMs ? `<span class="badge-est">~${formatDuration(test.estimatedMs)}</span>` : ''}
@@ -448,10 +448,25 @@
           resolve();
         }
       };
-      es.onerror = () => {
+      es.onerror = async () => {
+        es.close();
+        for (let i = 0; i < 120; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const r = await fetch('/api/run-status/' + runId);
+            if (r.ok) {
+              const data = await r.json();
+              if (data.status !== 'running') {
+                state[test.filename] = data.status;
+                setCardStatus(test.filename, data.status);
+                resolve();
+                return;
+              }
+            }
+          } catch {}
+        }
         state[test.filename] = 'failed';
         setCardStatus(test.filename, 'failed');
-        es.close();
         resolve();
       };
     });
@@ -523,7 +538,7 @@
           : '';
         failuresHtml += `
           <div class="results-failure-item">
-            <div class="results-failure-name">${escHtml(t.name)}</div>
+            <div class="results-failure-name">${escHtml(t.alias || t.name)}</div>
             ${actionHtml}
           </div>`;
       }

@@ -120,6 +120,48 @@
   </div>
 </div>
 
+<!-- ── Test Rename Modal ── -->
+<div id="test-rename-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog" style="max-width:420px;">
+    <div class="results-dialog-header">
+      <h2 class="results-title" data-i18n="modal_rename_test_title">Renommer le test</h2>
+      <button class="results-close-btn" id="test-rename-close">×</button>
+    </div>
+    <div class="results-dialog-body" style="padding:1.25rem 1.5rem;">
+      <label class="form-label small fw-semibold" for="test-rename-input" data-i18n="test_alias_label">Nom d'affichage</label>
+      <input type="text" class="form-control" id="test-rename-input" placeholder="Nom affiché dans l'interface…" data-i18n-placeholder="test_alias_placeholder" />
+      <p class="form-text mt-2" style="font-size:0.8rem;color:#6c757d;" data-i18n="test_alias_hint">Le fichier de test n'est pas renommé. Laissez vide pour revenir au nom d'origine.</p>
+    </div>
+    <div class="results-dialog-footer">
+      <button class="btn btn-outline-secondary btn-sm" id="test-rename-cancel" data-i18n="btn_cancel">Annuler</button>
+      <button class="btn btn-primary btn-sm" id="test-rename-save" data-i18n="btn_save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Test Delete Modal ── -->
+<div id="test-delete-modal" class="results-overlay" style="display:none">
+  <div class="results-dialog" style="max-width:420px;">
+    <div class="results-dialog-header">
+      <h2 class="results-title" data-i18n="modal_delete_test_title">Supprimer le test</h2>
+      <button class="results-close-btn" id="test-delete-close">×</button>
+    </div>
+    <div class="results-dialog-body" style="padding:1.25rem 1.5rem;">
+      <div class="delete-confirm-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+        </svg>
+      </div>
+      <p class="delete-confirm-message" id="test-delete-message"></p>
+      <p style="font-size:0.82rem;color:#6c757d;text-align:center;margin:0;" data-i18n="test_delete_warning">Supprime définitivement le fichier de test et toutes ses données associées (screenshots, actions, spec, logs).</p>
+    </div>
+    <div class="results-dialog-footer">
+      <button class="btn btn-outline-secondary btn-sm" id="test-delete-cancel" data-i18n="btn_cancel">Annuler</button>
+      <button class="btn btn-danger btn-sm" id="test-delete-confirm-btn" data-i18n="btn_delete">Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Group Picker Modal ── -->
 <div id="group-picker-modal" class="results-overlay" style="display:none">
   <div class="results-dialog group-picker-dialog">
@@ -238,7 +280,7 @@
     const q = query.toLowerCase().trim();
     const tokens = q.split(/\s+/).filter(Boolean);
     const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
-      const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+      const nameTokens = (t.alias || t.name).toLowerCase().split(/[\s\-]+/).filter(Boolean);
       return tokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
     });
 
@@ -247,6 +289,7 @@
 
     list.innerHTML = filtered.map(t => {
       const testGroups = getTestGroups(t.filename);
+      const displayName = t.alias || t.name;
       let btnLabel, btnStyle, extraClass;
       if (testGroups.length === 0) {
         btnLabel = window.t('assign_btn_label');
@@ -269,8 +312,22 @@
       return `
         <div class="avail-item" data-filename="${escHtml(t.filename)}">
           <div class="avail-item-info">
-            <p class="test-name">${escHtml(t.name)}</p>
+            <p class="test-name">${escHtml(displayName)}${t.alias ? `<span class="test-alias-hint" title="${escHtml(t.filename)}"> (${escHtml(t.filename.replace('.spec.ts',''))})</span>` : ''}</p>
             <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
+          </div>
+          <div class="avail-item-actions">
+            <button class="btn-test-action btn-test-rename" data-filename="${escHtml(t.filename)}" title="${escHtml(window.t('btn_test_rename_title'))}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12z"/>
+                <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/>
+              </svg>
+            </button>
+            <button class="btn-test-action btn-test-delete" data-filename="${escHtml(t.filename)}" title="${escHtml(window.t('btn_test_delete_title'))}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+              </svg>
+            </button>
           </div>
           <button class="group-assign-btn${extraClass}" data-filename="${escHtml(t.filename)}" style="${btnStyle}">
             ${btnLabel}
@@ -280,6 +337,12 @@
 
     for (const btn of list.querySelectorAll('.group-assign-btn')) {
       btn.addEventListener('click', () => openGroupPicker(btn.dataset.filename));
+    }
+    for (const btn of list.querySelectorAll('.btn-test-rename')) {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); openTestRenameModal(btn.dataset.filename); });
+    }
+    for (const btn of list.querySelectorAll('.btn-test-delete')) {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); deleteTest(btn.dataset.filename); });
     }
   }
 
@@ -375,7 +438,7 @@
 
       const testRows = g.tests.map(fn => {
         const t = allTests.find(x => x.filename === fn);
-        const name = t ? t.name : fn;
+        const name = t ? (t.alias || t.name) : fn;
         const type = t ? t.type : '';
         const typeLabel = t ? t.typeLabel : '';
         return `
@@ -529,7 +592,7 @@
     const q = query.toLowerCase().trim();
     const tokens = q.split(/\s+/).filter(Boolean);
     const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
-      const nameTokens = t.name.toLowerCase().split(/[\s\-]+/).filter(Boolean);
+      const nameTokens = (t.alias || t.name).toLowerCase().split(/[\s\-]+/).filter(Boolean);
       return tokens.every(qt => nameTokens.some(nt => nt.includes(qt)));
     });
 
@@ -539,7 +602,7 @@
         <input type="checkbox" class="manage-test-checkbox" value="${escHtml(t.filename)}"
           ${manageSelection.has(t.filename) ? 'checked' : ''} />
         <div class="avail-item-info" style="flex:1;min-width:0;">
-          <p class="test-name" style="font-size:0.95rem;">${escHtml(t.name)}</p>
+          <p class="test-name" style="font-size:0.95rem;">${escHtml(t.alias || t.name)}</p>
           <span class="badge-type ${badgeClass(t.type)}">${escHtml(t.typeLabel)}</span>
         </div>
       </label>`).join('');
@@ -668,6 +731,95 @@
   });
   document.getElementById('search-tests').addEventListener('input', (e) => {
     renderTests(e.target.value.trim());
+  });
+
+  // ── Test rename modal ──
+
+  let renameTestFilename = null;
+
+  function openTestRenameModal(filename) {
+    const t = allTests.find(x => x.filename === filename);
+    if (!t) return;
+    renameTestFilename = filename;
+    document.getElementById('test-rename-input').value = t.alias || '';
+    document.getElementById('test-rename-modal').style.display = 'flex';
+    setTimeout(() => { const i = document.getElementById('test-rename-input'); i.focus(); i.select(); }, 50);
+  }
+
+  function closeTestRenameModal() {
+    document.getElementById('test-rename-modal').style.display = 'none';
+    renameTestFilename = null;
+  }
+
+  async function saveTestRename() {
+    if (!renameTestFilename) return;
+    const alias = document.getElementById('test-rename-input').value.trim();
+    const testkey = renameTestFilename.replace('.spec.ts', '');
+    await fetch('/api/test-aliases/' + encodeURIComponent(testkey), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alias }),
+    });
+    allTests = await fetch('/api/tests').then(r => r.json());
+    closeTestRenameModal();
+    renderAll();
+  }
+
+  document.getElementById('test-rename-close').addEventListener('click', closeTestRenameModal);
+  document.getElementById('test-rename-cancel').addEventListener('click', closeTestRenameModal);
+  document.getElementById('test-rename-save').addEventListener('click', saveTestRename);
+  document.getElementById('test-rename-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('test-rename-modal')) closeTestRenameModal();
+  });
+  document.getElementById('test-rename-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveTestRename();
+    if (e.key === 'Escape') closeTestRenameModal();
+  });
+
+  // ── Test delete modal ──
+
+  let deleteTestResolve = null;
+  let deleteTestFilename = null;
+
+  function openTestDeleteModal(filename) {
+    const t = allTests.find(x => x.filename === filename);
+    if (!t) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      deleteTestResolve = resolve;
+      deleteTestFilename = filename;
+      document.getElementById('test-delete-message').textContent =
+        `${window.t('test_delete_confirm_prefix')} « ${t.alias || t.name} » ?`;
+      document.getElementById('test-delete-modal').style.display = 'flex';
+      document.getElementById('test-delete-confirm-btn').focus();
+    });
+  }
+
+  function closeTestDeleteModal(confirmed) {
+    document.getElementById('test-delete-modal').style.display = 'none';
+    if (deleteTestResolve) { deleteTestResolve(confirmed); deleteTestResolve = null; }
+    deleteTestFilename = null;
+  }
+
+  async function deleteTest(filename) {
+    const confirmed = await openTestDeleteModal(filename);
+    if (!confirmed) return;
+    const testkey = filename.replace('.spec.ts', '');
+    await fetch('/api/tests/' + encodeURIComponent(testkey), { method: 'DELETE' });
+    allTests = await fetch('/api/tests').then(r => r.json());
+    groups = await fetch('/api/groups').then(r => r.json());
+    renderAll();
+  }
+
+  document.getElementById('test-delete-close').addEventListener('click', () => closeTestDeleteModal(false));
+  document.getElementById('test-delete-cancel').addEventListener('click', () => closeTestDeleteModal(false));
+  document.getElementById('test-delete-confirm-btn').addEventListener('click', () => closeTestDeleteModal(true));
+  document.getElementById('test-delete-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('test-delete-modal')) closeTestDeleteModal(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('test-delete-modal').style.display === 'none') return;
+    if (e.key === 'Escape') closeTestDeleteModal(false);
+    if (e.key === 'Enter') closeTestDeleteModal(true);
   });
 
   // ── Init ──

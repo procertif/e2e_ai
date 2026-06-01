@@ -85,6 +85,16 @@
   "btn_remove_from_group_title": "Retirer du groupe",
   "assign_btn_label": "— Assigner —",
 
+  "modal_rename_test_title": "Renommer le test",
+  "test_alias_label": "Nom d'affichage",
+  "test_alias_placeholder": "Nom affiché dans l'interface…",
+  "test_alias_hint": "Le fichier de test n'est pas renommé. Laissez vide pour revenir au nom d'origine.",
+  "modal_delete_test_title": "Supprimer le test",
+  "test_delete_confirm_prefix": "Supprimer",
+  "test_delete_warning": "Supprime définitivement le fichier de test et toutes ses données associées (screenshots, actions, spec, logs).",
+  "btn_test_rename_title": "Renommer",
+  "btn_test_delete_title": "Supprimer",
+
   "scenarios_page_title": "Scénarios",
   "search_scenarios_placeholder": "Rechercher…",
   "scenario_empty_message": "Sélectionnez un test pour voir son scénario",

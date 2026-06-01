@@ -478,3 +478,41 @@
 .groups-tab-empty p { font-size: 0.9rem; margin: 0; }
 .groups-tab-empty a { font-size: 0.875rem; color: #0d6efd; text-decoration: none; }
 .groups-tab-empty a:hover { text-decoration: underline; }
+
+/* ── Test action buttons (rename / delete) in left panel ── */
+
+.avail-item-actions {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.avail-item:hover .avail-item-actions {
+  opacity: 1;
+}
+
+.btn-test-action {
+  background: none;
+  border: none;
+  padding: 0.28rem 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #adb5bd;
+  transition: background 0.1s, color 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.btn-test-rename:hover { color: #0d6efd; background: #e8f0fe; }
+.btn-test-delete:hover { color: #dc3545; background: #fce8e8; }
+
+.test-alias-hint {
+  font-size: 0.72rem;
+  color: #adb5bd;
+  font-weight: 400;
+  margin-left: 0.25rem;
+}

@@ -1,7 +1,7 @@
 const http = require("http");
 const https = require("https");
 const os = require("os");
-const { spawn, exec } = require("child_process");
+const { spawn, exec, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -10,6 +10,7 @@ const TESTS_DIR = path.resolve(E2E_DIR, "tests");
 const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
 const DATA_DIR = path.resolve(E2E_DIR, "data");
 const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
+const ALIASES_FILE = path.join(DATA_DIR, "test-aliases.json");
 const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
 const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
 const SPECS_DIR = path.join(DATA_DIR, "specs");
@@ -324,7 +325,7 @@ async function callClaudeStream(token, messages, onEvent, instructions, signal) 
 	systemBlocks[systemBlocks.length - 1].cache_control = { type: "ephemeral", ttl: "1h" };
 	const body = Buffer.from(JSON.stringify({
 		model: ANTHROPIC_MODEL,
-		max_tokens: 8096,
+		max_tokens: 16000,
 		system: systemBlocks,
 		tools: TOOLS,
 		messages,
@@ -560,6 +561,8 @@ function startChatRun(message, images, sessionId, instructions) {
 		run.clients.clear();
 		setTimeout(() => chatRuns.delete(runId), 5 * 60 * 1000);
 	})().catch((err) => {
+		chatHistories.set(runId, history);
+		if (chatHistories.size > 50) chatHistories.delete([...chatHistories.keys()][0]);
 		log.endedAt = new Date().toISOString();
 		log.durationMs = Date.now() - sessionStart;
 		log.error = err.message;
@@ -569,7 +572,7 @@ function startChatRun(message, images, sessionId, instructions) {
 			fs.writeFileSync(path.join(CHAT_LOGS_DIR, `${ts}_${runId}.json`), JSON.stringify(log, null, 2), "utf-8");
 		} catch {}
 		run.status = "error";
-		pushEvent({ type: "done", status: "error", error: err.message });
+		pushEvent({ type: "done", status: "error", error: err.message, sessionId: runId });
 		for (const res of run.clients) res.end();
 		run.clients.clear();
 	});
@@ -580,13 +583,14 @@ function startChatRun(message, images, sessionId, instructions) {
 function listTests() {
 	if (!fs.existsSync(TESTS_DIR)) return [];
 	const history = loadRunHistory();
+	const aliases = loadAliases();
 	return fs
 		.readdirSync(TESTS_DIR)
 		.filter((f) => f.endsWith(".spec.ts"))
 		.map((filename) => {
-			const m = filename
-				.replace(".spec.ts", "")
-				.match(/^(?:\d+-)?cas(\d+)-(.+?)(?:-(?:ai|noai))?$/);
+			const testkey = filename.replace(".spec.ts", "");
+			const alias = aliases[testkey] || null;
+			const m = testkey.match(/^(?:\d+-)?cas(\d+)-(.+?)(?:-(?:ai|noai))?$/);
 			if (m) {
 				const [, casNum, type] = m;
 				const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
@@ -597,17 +601,18 @@ function listTests() {
 					type,
 					typeLabel,
 					name: `Cas ${casNum} - ${typeLabel}`,
+					alias,
 					estimatedMs: estimatedMs(history, filename),
 				};
 			}
-			const baseName = filename.replace(".spec.ts", "");
 			return {
 				filename,
-				cas: baseName,
+				cas: testkey,
 				casNum: 0,
-				type: baseName,
-				typeLabel: baseName,
-				name: baseName.replace(/-/g, " "),
+				type: testkey,
+				typeLabel: testkey,
+				name: testkey.replace(/-/g, " "),
+				alias,
 				estimatedMs: estimatedMs(history, filename),
 			};
 		})
@@ -617,18 +622,30 @@ function listTests() {
 function listScreenshots() {
 	if (!fs.existsSync(SCREENSHOTS_DIR)) return [];
 
+	// Build a map testkey → display name from the live test list (includes aliases)
+	const testDisplayNames = {};
+	for (const t of listTests()) {
+		testDisplayNames[t.filename.replace(".spec.ts", "")] = t.alias || t.name;
+	}
+
 	const groups = [];
 	for (const folder of fs.readdirSync(SCREENSHOTS_DIR).sort()) {
 		const folderPath = path.join(SCREENSHOTS_DIR, folder);
 		if (!fs.statSync(folderPath).isDirectory()) continue;
 
-		const m = folder.match(/^cas(\d+)-(.+?)(?:-(ai|noai))?$/);
 		let testName;
-		if (m) {
-			const typeLabel = m[2].charAt(0).toUpperCase() + m[2].slice(1);
-			testName = `Cas ${m[1]} - ${typeLabel}`;
+		if (testDisplayNames[folder]) {
+			// Known test — use the exact same name (alias or auto-generated) as the test list
+			testName = testDisplayNames[folder];
 		} else {
-			testName = folder.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+			// Orphaned screenshot folder (test deleted or manually created)
+			const m = folder.match(/^cas(\d+)-(.+?)(?:-(ai|noai))?$/);
+			if (m) {
+				const typeLabel = m[2].charAt(0).toUpperCase() + m[2].slice(1);
+				testName = `Cas ${m[1]} - ${typeLabel}`;
+			} else {
+				testName = folder.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+			}
 		}
 
 		const screenshots = fs.readdirSync(folderPath)
@@ -658,6 +675,14 @@ function loadGroups() {
 
 function saveGroups(data) {
 	fs.writeFileSync(GROUPS_FILE, JSON.stringify(data, null, 2));
+}
+
+function loadAliases() {
+	try { return JSON.parse(fs.readFileSync(ALIASES_FILE, "utf-8")); } catch { return {}; }
+}
+
+function saveAliases(data) {
+	fs.writeFileSync(ALIASES_FILE, JSON.stringify(data, null, 2));
 }
 
 function loadRunHistory() {
@@ -693,21 +718,39 @@ function readBody(req) {
 function startRun(filename) {
 	const runId =
 		Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-	const run = { lines: [], status: "running", clients: new Set() };
+	const run = { lines: [], status: "running", clients: new Set(), kill: null };
 	const startTime = Date.now();
 	runs.set(runId, run);
 
+	try { execSync('pkill -9 -f "playwright"'); } catch {}
+	try { execSync('pkill -9 -f "chrome"'); } catch {}
+
 	const proc = spawn(
-		"npx",
-		["playwright", "test", `tests/${filename}`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
+		"node_modules/.bin/playwright",
+		["test", `tests/${filename}`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
 		{
 			cwd: E2E_DIR,
 			env: { ...process.env, ...envLocal },
+			stdio: ["ignore", "pipe", "pipe"],
 		},
 	);
 
+	run.kill = () => {
+		try { proc.kill("SIGKILL"); } catch {}
+		try { execSync('pkill -9 -f "playwright"'); } catch {}
+		try { execSync('pkill -9 -f "chrome"'); } catch {}
+	};
+
+	const autoKillTimer = setTimeout(() => {
+		if (run.status === "running") run.kill();
+	}, 300_000);
+
+	const logFile = path.join(DATA_DIR, `run-${filename.replace(".spec.ts", "")}-last.log`);
+	let logData = "";
+
 	const push = (data) => {
 		const text = data.toString();
+		logData += text;
 		run.lines.push(text);
 		for (const res of run.clients) {
 			res.write(`data: ${JSON.stringify({ text })}\n\n`);
@@ -718,6 +761,12 @@ function startRun(filename) {
 	proc.stderr.on("data", push);
 
 	proc.on("close", (code) => {
+		clearTimeout(autoKillTimer);
+		logData += `\n[EXIT CODE: ${code}]\n`;
+		try { fs.writeFileSync(logFile, logData); } catch {}
+		if (code !== 0) {
+			try { fs.writeFileSync(logFile.replace("-last.log", "-last-failed.log"), logData); } catch {}
+		}
 		run.status = code === 0 ? "passed" : "failed";
 		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
@@ -890,6 +939,73 @@ http
 			return;
 		}
 
+		if (req.method === "GET" && pathname === "/api/test-aliases") {
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(loadAliases()));
+			return;
+		}
+
+		const testAliasMatch = pathname.match(/^\/api\/test-aliases\/([^/]+)$/);
+		if (testAliasMatch) {
+			const testkey = decodeURIComponent(testAliasMatch[1]);
+			if (req.method === "PUT") {
+				try {
+					const body = await readBody(req);
+					const aliases = loadAliases();
+					const alias = (body.alias || "").trim();
+					if (alias) {
+						aliases[testkey] = alias;
+					} else {
+						delete aliases[testkey];
+					}
+					saveAliases(aliases);
+					res.writeHead(200, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({ ok: true }));
+				} catch {
+					res.writeHead(400); res.end("Bad request");
+				}
+				return;
+			}
+			if (req.method === "DELETE") {
+				const aliases = loadAliases();
+				delete aliases[testkey];
+				saveAliases(aliases);
+				res.writeHead(204); res.end();
+				return;
+			}
+		}
+
+		const testDeleteMatch = pathname.match(/^\/api\/tests\/([^/]+)$/);
+		if (req.method === "DELETE" && testDeleteMatch) {
+			const testkey = decodeURIComponent(testDeleteMatch[1]);
+			const filename = testkey + ".spec.ts";
+			try { fs.unlinkSync(path.join(TESTS_DIR, filename)); } catch {}
+			const screenshotFolder = path.join(SCREENSHOTS_DIR, testkey);
+			if (fs.existsSync(screenshotFolder)) {
+				fs.rmSync(screenshotFolder, { recursive: true, force: true });
+			}
+			for (const p of [
+				path.join(DATA_DIR, "actionTest", testkey + ".json"),
+				path.join(SPECS_DIR, testkey + ".md"),
+				path.join(DATA_DIR, "promptTest", testkey + ".json"),
+				path.join(PENDING_DIR, testkey + ".spec.ts"),
+				path.join(DATA_DIR, `run-${testkey}-last.log`),
+				path.join(DATA_DIR, `run-${testkey}-last-failed.log`),
+			]) { try { fs.unlinkSync(p); } catch {} }
+			const grps = loadGroups();
+			const grpsUpdated = grps.map(g => ({ ...g, tests: g.tests.filter(t => t !== filename) }));
+			saveGroups(grpsUpdated);
+			const history = loadRunHistory();
+			if (history[filename]) {
+				delete history[filename];
+				fs.writeFileSync(RUN_HISTORY_FILE, JSON.stringify(history, null, 2));
+			}
+			const aliases = loadAliases();
+			if (aliases[testkey]) { delete aliases[testkey]; saveAliases(aliases); }
+			res.writeHead(204); res.end();
+			return;
+		}
+
 		if (req.method === "GET" && pathname === "/api/groups") {
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify(loadGroups()));
@@ -1012,6 +1128,29 @@ http
 			return;
 		}
 
+		const killMatch = pathname.match(/^\/api\/kill\/(.+)$/);
+		if (req.method === "POST" && killMatch) {
+			const run = runs.get(killMatch[1]);
+			if (!run || typeof run.kill !== "function") {
+				res.writeHead(404);
+				res.end("Not found");
+				return;
+			}
+			run.kill();
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ ok: true }));
+			return;
+		}
+
+		const runStatusMatch = pathname.match(/^\/api\/run-status\/(.+)$/);
+		if (req.method === "GET" && runStatusMatch) {
+			const run = runs.get(runStatusMatch[1]);
+			if (!run) { res.writeHead(404); res.end(); return; }
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ status: run.status }));
+			return;
+		}
+
 		const streamMatch = pathname.match(/^\/api\/stream\/(.+)$/);
 		if (req.method === "GET" && streamMatch) {
 			const run = runs.get(streamMatch[1]);
@@ -1120,13 +1259,21 @@ http
 				const tempFile = path.join(TESTS_DIR, tempName + ".spec.ts");
 				fs.copyFileSync(pendingFile, tempFile);
 				const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-				const run = { lines: [], status: "running", clients: new Set() };
+				const run = { lines: [], status: "running", clients: new Set(), kill: null };
 				runs.set(runId, run);
 				const proc = spawn(
 					"npx",
-					["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
-					{ cwd: E2E_DIR, env: { ...process.env, ...envLocal } }
+					["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=list", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
+					{ cwd: E2E_DIR, env: { ...process.env, ...envLocal }, detached: true }
 				);
+				run.kill = () => {
+					try { process.kill(-proc.pid, "SIGKILL"); } catch {}
+					try { execSync('pkill -9 -f "playwright"'); } catch {}
+					try { execSync('pkill -9 -f "chrome"'); } catch {}
+				};
+				const autoKillTimer = setTimeout(() => {
+					if (run.status === "running") run.kill();
+				}, 300_000);
 				const push = (data) => {
 					const text = data.toString();
 					run.lines.push(text);
@@ -1135,6 +1282,7 @@ http
 				proc.stdout.on("data", push);
 				proc.stderr.on("data", push);
 				proc.on("close", (code) => {
+					clearTimeout(autoKillTimer);
 					try { fs.unlinkSync(tempFile); } catch {}
 					run.status = code === 0 ? "passed" : "failed";
 					const msg = `data: ${JSON.stringify({ done: true, status: run.status })}\n\n`;
@@ -1374,3 +1522,12 @@ http
 		console.log(`Test runner available at http://localhost:${PORT}`);
 		generateMissingSpecs();
 	});
+
+// Reap zombie children re-parented from Chromium/Playwright.
+// When Node.js reaps any direct child, libuv calls waitpid(-1, WNOHANG) in a
+// loop, which picks up ALL pending zombies — including re-adopted ones.
+setInterval(() => {
+	const p = spawn("true", [], { stdio: "ignore" });
+	p.on("error", () => {});
+	p.on("close", () => {});
+}, 5000);

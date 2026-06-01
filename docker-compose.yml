@@ -1,6 +1,7 @@
 services:
   e2e:
     build: .
+    init: true
     network_mode: host
     environment:
       - DISPLAY=${DISPLAY:-:0}

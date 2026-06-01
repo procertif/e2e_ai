@@ -228,7 +228,7 @@
   function renderList(q) {
     const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
     const filtered = tokens.length === 0 ? allTests : allTests.filter(t => {
-      const name = t.name.toLowerCase();
+      const name = (t.alias || t.name).toLowerCase();
       return tokens.every(tok => name.includes(tok));
     });
     document.getElementById('avail-count').textContent =
@@ -236,7 +236,7 @@
     document.getElementById('test-list').innerHTML = filtered.map(t => `
       <div class="test-item scenario-test-item ${selectedTest === t.filename ? 'selected' : ''}"
            data-filename="${t.filename}" onclick="selectTest('${t.filename}')">
-        <span class="test-name">${escHtml(t.name)}</span>
+        <span class="test-name">${escHtml(t.alias || t.name)}</span>
         <span class="test-file">${escHtml(t.filename)}</span>
       </div>
     `).join('');
