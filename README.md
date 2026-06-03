@@ -162,20 +162,20 @@ app/                        # Test Runner UI
   i18n/                     # Traductions (en.json, fr.json)
   i18n.js                   # Chargeur i18n côté client
 
-tests/                      # Specs Playwright (gitignorées)
-  cas1-quiz.spec.ts
-  cas2-quiz.spec.ts
-  cas3-quiz.spec.ts
-  cas4-quiz.spec.ts
-  cas1-jury.spec.ts
+tests/                      # Specs Playwright (gitignorées, varient par environnement)
+  <domaine>_<type>.spec.ts  # ex: badge_competences_ia.spec.ts, titre_rncp.spec.ts
   prompt/                   # Conversations chat sauvegardées (JSON)
 
 data/                       # Données runtime (gitignorées)
   groups.json               # Groupes persistés
   last-session.json         # Dernière session (écrasé à chaque run)
   run-history.json          # Historique des durées d'exécution
+  test-aliases.json         # Alias d'affichage des fichiers de test
   actionTest/               # Journaux d'actions par test (JSON)
   specs/                    # Specs Gherkin générées (Markdown)
+  pending/                  # Tests générés par le chat en attente de confirmation
+  promptTest/               # Historiques de prompts par test
+  chat-logs/                # Logs des sessions chat IA (JSON)
 
 screenshots/                # Captures générées par les tests (gitignorées)
 ```
@@ -183,15 +183,16 @@ screenshots/                # Captures générées par les tests (gitignorées)
 ## Conventions de nommage des specs
 
 ```
-<cas>-<type>.spec.ts
+<domaine>_<type>.spec.ts
 ```
 
-Exemples : `cas1-quiz.spec.ts`, `cas1-jury.spec.ts`
+Exemples : `badge_competences_ia.spec.ts`, `titre_rncp.spec.ts`
 
 ## Notes
 
 - Les tests ne contiennent pas d'assertions — ils capturent les workflows via screenshots.
-- L'authentification utilise un magic code (email + OTP via `TEST_OTP`) et est inlinée dans chaque test.
+- L'authentification se fait via un `VALIDATION_TOKEN` passé en paramètre d'URL (`?validation=<token>`), sans email ni OTP.
+- Les screenshots sont numérotés et labellisés via un helper `shot()` défini dans chaque test.
 - L'exécution est séquentielle (`fullyParallel: false`, `retries: 0`).
 - Navigateur : Chromium uniquement.
 - Les tests, screenshots et données runtime sont gitignorés.
