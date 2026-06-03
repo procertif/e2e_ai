@@ -763,10 +763,6 @@ function startRun(filename) {
 	proc.on("close", (code) => {
 		clearTimeout(autoKillTimer);
 		logData += `\n[EXIT CODE: ${code}]\n`;
-		try { fs.writeFileSync(logFile, logData); } catch {}
-		if (code !== 0) {
-			try { fs.writeFileSync(logFile.replace("-last.log", "-last-failed.log"), logData); } catch {}
-		}
 		run.status = code === 0 ? "passed" : "failed";
 		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
 		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
