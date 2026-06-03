@@ -46,10 +46,38 @@
   padding-left: 13px;
 }
 
+.log-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
 .log-item-date {
   font-size: 0.72rem;
   color: #6c757d;
-  margin-bottom: 3px;
+}
+
+.log-delete-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: #9ca3af;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+.log-item:hover .log-delete-btn {
+  opacity: 1;
+}
+
+.log-delete-btn:hover {
+  color: #dc3545;
+  background: #fee2e2;
 }
 
 .log-item-stats {

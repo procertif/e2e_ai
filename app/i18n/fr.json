@@ -182,6 +182,8 @@
   "logs_stat_out_title": "Tokens en sortie",
   "logs_stat_cache_title": "Cache lu",
   "logs_stat_calls_title": "Appels API",
+  "logs_delete_title": "Supprimer ce log",
+  "logs_delete_confirm": "Supprimer ce fichier de log ?",
 
   "config_page_title": "Configuration",
   "config_section_title": "Variables d'environnement",

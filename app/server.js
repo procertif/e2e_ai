@@ -1428,6 +1428,22 @@ http
 			return;
 		}
 
+		if (req.method === "DELETE" && chatLogMatch) {
+			const filename = path.basename(decodeURIComponent(chatLogMatch[1]));
+			const logPath = path.join(CHAT_LOGS_DIR, filename);
+			if (!logPath.startsWith(CHAT_LOGS_DIR)) {
+				res.writeHead(400);
+				res.end("Invalid filename");
+				return;
+			}
+			if (fs.existsSync(logPath)) {
+				fs.unlinkSync(logPath);
+			}
+			res.writeHead(204);
+			res.end();
+			return;
+		}
+
 		if (req.method === "GET" && pathname === "/chat.css") {
 			res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
 			res.end(fs.readFileSync(path.join(__dirname, "chat.css")));

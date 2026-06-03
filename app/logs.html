@@ -141,26 +141,60 @@
     container.innerHTML = sessions.map(s => {
       const t = s.totals;
       const isActive = s.filename === activeFilename;
+      const T = window.t || (k => k);
       return `
         <div class="log-item${isActive ? ' active' : ''}" data-filename="${s.filename}">
-          <div class="log-item-date">${fmtDate(s.startedAt)}</div>
+          <div class="log-item-top">
+            <div class="log-item-date">${fmtDate(s.startedAt)}</div>
+            <button class="log-delete-btn" data-filename="${s.filename}" title="${T('logs_delete_title')}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+              </svg>
+            </button>
+          </div>
           <div class="log-item-stats">
             ${t ? `
-              <span class="log-stat-badge in" title="${(window.t || (k => k))('logs_stat_in_title')}">${fmtNum(t.input_tokens)} in</span>
-              <span class="log-stat-badge out" title="${(window.t || (k => k))('logs_stat_out_title')}">${fmtNum(t.output_tokens)} out</span>
-              ${t.cache_read_input_tokens ? `<span class="log-stat-badge cache" title="${(window.t || (k => k))('logs_stat_cache_title')}">${fmtNum(t.cache_read_input_tokens)} cache</span>` : ''}
-              <span class="log-stat-badge calls" title="${(window.t || (k => k))('logs_stat_calls_title')}">${t.apiCalls} ${(window.t || (k => k))('logs_api_calls').toLowerCase()}</span>
+              <span class="log-stat-badge in" title="${T('logs_stat_in_title')}">${fmtNum(t.input_tokens)} in</span>
+              <span class="log-stat-badge out" title="${T('logs_stat_out_title')}">${fmtNum(t.output_tokens)} out</span>
+              ${t.cache_read_input_tokens ? `<span class="log-stat-badge cache" title="${T('logs_stat_cache_title')}">${fmtNum(t.cache_read_input_tokens)} cache</span>` : ''}
+              <span class="log-stat-badge calls" title="${T('logs_stat_calls_title')}">${t.apiCalls} ${T('logs_api_calls').toLowerCase()}</span>
             ` : ''}
           </div>
         </div>`;
     }).join('');
 
     for (const el of container.querySelectorAll('.log-item')) {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.log-delete-btn')) return;
         activeFilename = el.dataset.filename;
         renderList();
         loadDetail(activeFilename);
       });
+    }
+
+    for (const btn of container.querySelectorAll('.log-delete-btn')) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteLog(btn.dataset.filename);
+      });
+    }
+  }
+
+  async function deleteLog(filename) {
+    const T = window.t || (k => k);
+    if (!confirm(T('logs_delete_confirm'))) return;
+    try {
+      await fetch(`/api/chat-logs/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      if (activeFilename === filename) {
+        activeFilename = null;
+        document.getElementById('logs-detail').innerHTML =
+          `<div class="logs-empty">${T('logs_select_session')}</div>`;
+      }
+      sessions = sessions.filter(s => s.filename !== filename);
+      renderList();
+    } catch {
+      alert('Erreur lors de la suppression.');
     }
   }
 
