@@ -1090,6 +1090,20 @@ http
 		}
 
 		const screenshotDeleteMatch = pathname.match(/^\/api\/screenshots\/([^/]+)$/);
+		if (req.method === "GET" && screenshotDeleteMatch) {
+			const folder = decodeURIComponent(screenshotDeleteMatch[1]);
+			const folderPath = path.join(SCREENSHOTS_DIR, folder);
+			if (!folderPath.startsWith(SCREENSHOTS_DIR + path.sep)) {
+				res.writeHead(400); res.end("Invalid folder"); return;
+			}
+			let count = 0;
+			if (fs.existsSync(folderPath)) {
+				count = fs.readdirSync(folderPath).filter(f => f.endsWith(".png")).length;
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ count }));
+			return;
+		}
 		if (req.method === "DELETE" && screenshotDeleteMatch) {
 			const folder = decodeURIComponent(screenshotDeleteMatch[1]);
 			const folderPath = path.join(SCREENSHOTS_DIR, folder);

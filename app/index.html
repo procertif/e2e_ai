@@ -505,21 +505,16 @@
     allScreenshotsBtn.style.display = sessionTests.length > 0 ? '' : 'none';
 
     async function findFailingAction(t) {
-      const output = outputMap[t.filename] || '';
-      const atMatches = [...output.matchAll(/at [^\n]*\.spec\.ts:(\d+)/g)];
-      const allMatches = [...output.matchAll(/\.spec\.ts:(\d+)/g)];
-      const matches = atMatches.length ? atMatches : allMatches;
-      if (!matches.length) return null;
-      const failLine = parseInt(matches[matches.length - 1][1]);
       const testKey = t.filename.replace(/\.spec\.ts$/, '');
       try {
-        const res = await fetch(`/api/actions/${encodeURIComponent(testKey)}`);
-        if (!res.ok) return null;
-        const data = await res.json();
-        const candidates = data.actions.filter(a => a.line <= failLine);
-        if (!candidates.length) return null;
-        const lastIdx = data.actions.indexOf(candidates[candidates.length - 1]);
-        return data.actions[lastIdx + 1] ?? data.actions[lastIdx];
+        const [actionsRes, countRes] = await Promise.all([
+          fetch(`/api/actions/${encodeURIComponent(testKey)}`),
+          fetch(`/api/screenshots/${encodeURIComponent(testKey)}`),
+        ]);
+        if (!actionsRes.ok) return null;
+        const data = await actionsRes.json();
+        const n = countRes.ok ? (await countRes.json()).count : 0;
+        return data.actions[n] ?? data.actions[data.actions.length - 1] ?? null;
       } catch { return null; }
     }
 
