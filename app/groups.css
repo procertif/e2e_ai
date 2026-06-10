@@ -486,7 +486,7 @@
   gap: 0.15rem;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity 0.14s;
 }
 
 .avail-item:hover .avail-item-actions {

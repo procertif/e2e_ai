@@ -317,7 +317,7 @@ async function executeTool(name, input) {
 async function callClaudeStream(token, messages, onEvent, instructions, signal) {
 	const systemBlocks = [
 		{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
-		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}. The source code of the tested application (Procertif) is at /home/procertif/www/.` },
+		{ type: "text", text: `You have access to Read, Write, Edit, Bash, Glob, LS, ReadImage, and WebFetch tools. You have full filesystem access. Always use absolute paths. The e2e test suite is at ${E2E_DIR}. The source code of the tested application (Procertif) is at /app/webapp/.` },
 	];
 	if (instructions && instructions.trim()) {
 		systemBlocks.push({ type: "text", text: instructions.trim() });
