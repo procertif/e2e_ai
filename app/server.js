@@ -219,6 +219,7 @@ const ALLOWED_BASH_PATTERNS = [
 
 function isBashAllowed(command) {
 	const trimmed = command.trim();
+	if (/[|;&`]|\$\(/.test(trimmed)) return false;
 	return ALLOWED_BASH_PATTERNS.some(pattern => pattern.test(trimmed));
 }
 
