@@ -285,6 +285,11 @@ async function executeTool(name, input) {
 				if (!isBashAllowed(input.command)) {
 					return "Access denied: only cat, ls, npx playwright, and npm test are allowed.";
 				}
+				// For cat and ls, validate that the path argument is within allowed directories
+				const catMatch = input.command.trim().match(/^(?:cat|ls)\s+(.+)/);
+				if (catMatch && !isPathAllowed(catMatch[1].trim(), ALLOWED_READ_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				return new Promise((resolve) => {
 					exec(
 						input.command,
