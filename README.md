@@ -75,6 +75,7 @@ Le conteneur utilise le réseau hôte et monte les dossiers `app/`, `tests/`, `d
 - Recherche en temps réel par nom de test
 - Deux onglets : **Tests** (liste individuelle) et **Groupes** (ajout par groupe entier)
 - Bouton `+` pour ajouter un test à la file ; `×` pour le retirer
+- Menu contextuel par test : **Renommer** (alias d'affichage, le fichier n'est pas renommé) et **Supprimer** (supprime définitivement le fichier de test, les screenshots, les actions, la spec et les données associées)
 
 ### File d'exécution (panneau droit)
 
@@ -83,6 +84,7 @@ Le conteneur utilise le réseau hôte et monte les dossiers `app/`, `tests/`, `d
 - Chaque test peut être lancé individuellement via son bouton **Lancer**, ou tous d'un coup via **Lancer la file**
 - Output Playwright affiché en temps réel dans la carte du test (streaming SSE)
 - Statut visuel par carte : `Prêt` / `En cours…` / `Réussi ✓` / `Échoué ✗`
+- Bouton **Stop** pour interrompre un test en cours (SIGKILL sur le processus Playwright)
 - La file est persistée dans le `localStorage` (survit aux rechargements)
 - En fin de session : modale récapitulative avec nombre de tests lancés / réussis / échoués, durée totale, liste des échecs, et liens vers les screenshots
 
@@ -152,8 +154,8 @@ Le conteneur utilise le réseau hôte et monte les dossiers `app/`, `tests/`, `d
 ```
 app/                        # Test Runner UI
   server.js                 # Serveur HTTP (Node.js, port 3333)
-  index.html / index.css    # Page principale (test runner)
-  screenshots.html / .css   # Visionneuse de screenshots
+  index.html / index.css        # Page principale (test runner)
+  screenshots.html / screenshots.css  # Visionneuse de screenshots
   groups.html / groups.css  # Gestion des groupes
   scenarios.html / .css     # Scénarios Gherkin + workflow pending
   chat.html / chat.css      # Interface chat IA
