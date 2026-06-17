@@ -190,6 +190,38 @@ async function getOAuthToken() {
 // Constante à ajouter en haut du fichier, près des autres constantes
 const MAX_TOOL_OUTPUT = 10000; // caractères — ajustable selon ton budget token
 
+const ALLOWED_READ_PATHS = [
+	'/home/procertif',
+	'/app/screenshots',
+	'/app/tests',
+	'/app/data',
+	'/app/test-results',
+];
+
+const ALLOWED_WRITE_PATHS = [
+	'/home/procertif',
+	'/app/tests',
+	'/app/data',
+	'/app/test-results',
+];
+
+function isPathAllowed(filePath, allowedPaths) {
+	const resolved = path.resolve(filePath);
+	return allowedPaths.some(allowed => resolved === allowed || resolved.startsWith(allowed + path.sep));
+}
+
+const ALLOWED_BASH_PATTERNS = [
+	/^cat\s+/,
+	/^ls(\s|$)/,
+	/^npx\s+playwright\s+/,
+	/^npm\s+test(\s|$)/,
+];
+
+function isBashAllowed(command) {
+	const trimmed = command.trim();
+	return ALLOWED_BASH_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
 async function executeTool(name, input) {
 	const truncate = (str) => {
 		if (str.length <= MAX_TOOL_OUTPUT) return str;
@@ -199,6 +231,9 @@ async function executeTool(name, input) {
 	try {
 		switch (name) {
 			case "Read": {
+				if (!isPathAllowed(input.file_path, ALLOWED_READ_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				const content = fs.readFileSync(input.file_path, "utf-8");
 				const lines = content.split("\n");
 				const start = Math.max(0, (input.offset || 1) - 1);
@@ -207,6 +242,9 @@ async function executeTool(name, input) {
 				return truncate(result);
 			}
 			case "Write": {
+				if (!isPathAllowed(input.file_path, ALLOWED_WRITE_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				if (isTestSpecPath(input.file_path)) {
 					const testname = path.basename(input.file_path, ".spec.ts");
 					fs.mkdirSync(PENDING_DIR, { recursive: true });
@@ -218,6 +256,9 @@ async function executeTool(name, input) {
 				return "File written successfully.";
 			}
 			case "Edit": {
+				if (!isPathAllowed(input.file_path, ALLOWED_WRITE_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				if (isTestSpecPath(input.file_path)) {
 					const testname = path.basename(input.file_path, ".spec.ts");
 					const pendingPath = path.join(PENDING_DIR, testname + ".spec.ts");
@@ -240,6 +281,9 @@ async function executeTool(name, input) {
 				return "Edit applied successfully.";
 			}
 			case "Bash": {
+				if (!isBashAllowed(input.command)) {
+					return "Access denied: only cat, ls, npx playwright, and npm test are allowed.";
+				}
 				return new Promise((resolve) => {
 					exec(
 						input.command,
@@ -255,16 +299,22 @@ async function executeTool(name, input) {
 				});
 			}
 			case "Glob": {
+				const globDir = input.path || E2E_DIR;
+				if (!isPathAllowed(globDir, ALLOWED_READ_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				return new Promise((resolve) => {
-					const cwd = input.path || E2E_DIR;
 					const pat = input.pattern.replace(/"/g, '\\"');
-					exec(`find . -name "${pat}" 2>/dev/null | sort | head -200`, { cwd, timeout: 10000 },
+					exec(`find . -name "${pat}" 2>/dev/null | sort | head -200`, { cwd: globDir, timeout: 10000 },
 						(err, stdout) => resolve(truncate(stdout.trim() || "No files found."))
 					);
 				});
 			}
 			case "LS": {
 				const dir = input.path || E2E_DIR;
+				if (!isPathAllowed(dir, ALLOWED_READ_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				const entries = fs.readdirSync(dir, { withFileTypes: true });
 				return truncate(entries.map(e => e.isDirectory() ? e.name + "/" : e.name).join("\n") || "(empty)");
 			}
@@ -299,12 +349,14 @@ async function executeTool(name, input) {
 				});
 			}
 			case "ReadImage": {
+				if (!isPathAllowed(input.file_path, ALLOWED_READ_PATHS)) {
+					return "Access denied: path outside allowed directories.";
+				}
 				const ext = path.extname(input.file_path).toLowerCase().slice(1);
 				const mediaTypes = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
 				const media_type = mediaTypes[ext] || "image/png";
 				const data = fs.readFileSync(input.file_path).toString("base64");
 				return { _isImage: true, media_type, data };
-				// Note : pas de truncate ici, c'est du base64 binaire envoyé comme bloc image
 			}
 			default:
 				return `Unknown tool: ${name}`;
