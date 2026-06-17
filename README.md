@@ -191,4 +191,4 @@ Exemples : `badge_competences_ia.spec.ts`, `titre_rncp.spec.ts`
 - Les screenshots sont numérotés et labellisés via un helper `shot()` défini dans chaque test.
 - L'exécution est séquentielle (`fullyParallel: false`, `retries: 0`).
 - Navigateur : Chromium uniquement.
-- Les tests, screenshots et données runtime sont gitignorés.
+- Les tests, les screenshots et le dossier data sont dans le gitignore.
