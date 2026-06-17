@@ -187,7 +187,6 @@ Exemples : `badge_competences_ia.spec.ts`, `titre_rncp.spec.ts`
 
 ## Notes
 
-- Les tests ne contiennent pas d'assertions — ils capturent les workflows via screenshots.
 - Les screenshots sont numérotés et labellisés via un helper `shot()` défini dans chaque test.
 - L'exécution est séquentielle (`fullyParallel: false`, `retries: 0`).
 - Navigateur : Chromium uniquement.
