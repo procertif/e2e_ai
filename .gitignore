@@ -5,5 +5,4 @@ node_modules/
 /data/
 .env
 tests/
-.github
 CLAUDE.md
