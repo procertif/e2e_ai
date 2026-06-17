@@ -29,17 +29,12 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 | Variable | Défaut | Description |
 |----------|--------|-------------|
 | `BASE_URL` | `https://app.procertif.dev` | URL de l'application cible |
-| `TEST_OTP` | `444444` | Code OTP pour l'authentification magic-code |
 | `PORT` | `3333` | Port du serveur web (redémarrage requis) |
 | `HEADLESS` | `true` | `false` pour lancer Chromium en mode fenêtré |
 | `LANG` | `en` | Langue de l'interface : `fr` ou `en` |
 | `ANTHROPIC_CLIENT_ID` | — | Client ID OAuth pour l'API Claude |
 | `ANTHROPIC_MODEL` | — | Modèle Claude utilisé (ex : `claude-sonnet-4-6`) |
 
-Configurer le xprofile (mode headed) :
-```bash
-echo "xhost +local:" >> ~/.xprofile
-```
 
 ## Lancer les tests
 
@@ -193,7 +188,6 @@ Exemples : `badge_competences_ia.spec.ts`, `titre_rncp.spec.ts`
 ## Notes
 
 - Les tests ne contiennent pas d'assertions — ils capturent les workflows via screenshots.
-- L'authentification se fait via un `VALIDATION_TOKEN` passé en paramètre d'URL (`?validation=<token>`), sans email ni OTP.
 - Les screenshots sont numérotés et labellisés via un helper `shot()` défini dans chaque test.
 - L'exécution est séquentielle (`fullyParallel: false`, `retries: 0`).
 - Navigateur : Chromium uniquement.
