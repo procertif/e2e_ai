@@ -6,11 +6,20 @@ COPY package*.json ./
 RUN npm ci
 RUN npx playwright install chromium --with-deps
 
-COPY app/ ./app/
+COPY backend/package*.json ./backend/
+RUN npm --prefix backend ci
+
+COPY frontend/package*.json ./frontend/
+RUN npm --prefix frontend ci
+
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
+RUN npm --prefix frontend run build
+
 COPY playwright.config.ts tsconfig.json ./
 
 RUN mkdir -p data/actionTest data/specs screenshots tests
 
 EXPOSE 3333
 
-CMD ["node", "app/server.js"]
+CMD ["node", "backend/server.js"]

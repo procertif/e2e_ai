@@ -7,7 +7,7 @@ services:
       - DISPLAY=${DISPLAY:-:0}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ./app:/app/app
+      - ./backend:/app/backend
       - ./playwright.config.ts:/app/playwright.config.ts
       - ./tsconfig.json:/app/tsconfig.json:ro
       - ./tests:/app/tests
