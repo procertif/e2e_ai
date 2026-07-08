@@ -300,6 +300,26 @@ html, body {
   display: block;
 }
 
+.output-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
+}
+
+.btn-copy-output {
+  background: #1a1a2e;
+  color: #d4d4d4;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+}
+
+.btn-copy-output:hover {
+  background: #24243d;
+}
+
 .output-pre {
   color: #d4d4d4;
   font-family: "Fira Mono", "Consolas", "Courier New", monospace;
@@ -545,6 +565,21 @@ html, body {
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
+}
+
+.results-failure-error {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: #0f1117;
+  color: #ff8b85;
+  border-radius: 6px;
+  font-family: "Fira Mono", "Consolas", "Courier New", monospace;
+  font-size: 0.775rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .results-all-passed {

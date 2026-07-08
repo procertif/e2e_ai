@@ -22,6 +22,7 @@ export async function apiFetch(path: string, opts: RequestInit = {}) {
     if (!location.pathname.startsWith("/login")) {
       location.href = "/login";
     }
+    throw new Error("Unauthorized");
   }
   return res;
 }

@@ -8,7 +8,7 @@ import GroupsPage from "./pages/GroupsPage";
 import ScenariosPage from "./pages/ScenariosPage";
 import ChatPage from "./pages/ChatPage";
 import LogsPage from "./pages/LogsPage";
-import ConfigPage from "./pages/ConfigPage";
+import EnvironmentsPage from "./pages/EnvironmentsPage";
 
 export default function App() {
   return (
@@ -27,7 +27,7 @@ export default function App() {
         <Route path="/scenarios" element={<ScenariosPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/logs" element={<LogsPage />} />
-        <Route path="/config" element={<ConfigPage />} />
+        <Route path="/environments" element={<EnvironmentsPage />} />
       </Route>
     </Routes>
   );

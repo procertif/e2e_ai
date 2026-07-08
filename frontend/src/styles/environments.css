@@ -1,0 +1,147 @@
+.environments-list {
+  max-width: 720px;
+}
+
+.target-environment-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.target-environment-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.target-environment-select {
+  width: auto;
+  min-width: 160px;
+}
+
+.target-environment-select.is-required {
+  border-color: #dc3545;
+}
+
+.target-environment-hint {
+  font-size: 0.75rem;
+  color: #dc3545;
+}
+
+.target-environment-bar .environment-color-dot {
+  margin-top: 0;
+}
+
+.environment-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  margin-bottom: 0.75rem;
+  transition: box-shadow 0.15s;
+}
+
+.environment-card:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+}
+
+.environment-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.35rem;
+}
+
+.environment-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.environment-card-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.environment-card-url {
+  font-size: 0.8rem;
+  color: #6366f1;
+  word-break: break-all;
+}
+
+.environment-card-comment {
+  font-size: 0.82rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+}
+
+.environment-card-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.btn-environment-action {
+  background: none;
+  border: none;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #adb5bd;
+  transition: background 0.1s, color 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-environment-rename:hover { color: #0d6efd; background: #e8f0fe; }
+.btn-environment-delete:hover { color: #dc3545; background: #fce8e8; }
+
+.environments-empty {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+}
+
+.environment-color-swatches {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.environment-color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.environment-color-swatch.is-selected {
+  border-color: #212529;
+  box-shadow: 0 0 0 2px #fff inset;
+}
+
+.test-badge-environment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: #6c757d;
+}
+
+.test-badge-environment .environment-color-dot {
+  margin-top: 0;
+  width: 8px;
+  height: 8px;
+}

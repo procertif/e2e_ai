@@ -2,19 +2,15 @@ const express = require("express");
 const { spawn, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const db = require("./db");
+const ENVIRONMENT_COLORS = require("./environmentColors");
 
 const E2E_DIR = path.resolve(__dirname, "..");
-const TESTS_DIR = path.resolve(E2E_DIR, "tests");
-fs.mkdirSync(TESTS_DIR, { recursive: true });
-const SCREENSHOTS_DIR = path.resolve(E2E_DIR, "screenshots");
 const DATA_DIR = path.resolve(E2E_DIR, "data");
-const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
-const ALIASES_FILE = path.join(DATA_DIR, "test-aliases.json");
-const SESSION_FILE = path.join(DATA_DIR, "last-session.json");
-const RUN_HISTORY_FILE = path.join(DATA_DIR, "run-history.json");
-const SPECS_DIR = path.join(DATA_DIR, "specs");
+const SCREENSHOTS_DIR = path.resolve(DATA_DIR, "screenshots");
+const TESTS_DIR = path.join(DATA_DIR, "versioned", "tests");
+fs.mkdirSync(TESTS_DIR, { recursive: true });
 const PENDING_DIR = path.join(DATA_DIR, "pending");
-const CHAT_LOGS_DIR = path.join(DATA_DIR, "chat-logs");
 
 function parseEnvFile(filePath) {
 	try {
@@ -42,24 +38,29 @@ const { startChatRun, generateSpec, generateMissingSpecs, getChatRun } = require
 	E2E_DIR,
 	TESTS_DIR,
 	DATA_DIR,
-	SPECS_DIR,
 	PENDING_DIR,
-	CHAT_LOGS_DIR,
 	envLocal,
 });
 
 const { login, requireAuth } = require("./auth")({ envLocal });
 
-function listTests() {
+async function loadTestEnvironments() {
+	const rows = await db.testAction.findMany({ select: { testname: true, environmentId: true, environmentName: true } });
+	return Object.fromEntries(rows.map((r) => [r.testname, { environmentId: r.environmentId, environmentName: r.environmentName }]));
+}
+
+async function listTests() {
 	if (!fs.existsSync(TESTS_DIR)) return [];
-	const history = loadRunHistory();
-	const aliases = loadAliases();
+	const history = await loadRunHistory();
+	const aliases = await loadAliases();
+	const testEnvironments = await loadTestEnvironments();
 	return fs
 		.readdirSync(TESTS_DIR)
 		.filter((f) => f.endsWith(".spec.ts"))
 		.map((filename) => {
 			const testkey = filename.replace(".spec.ts", "");
 			const alias = aliases[testkey] || null;
+			const env = testEnvironments[testkey] || { environmentId: null, environmentName: null };
 			const m = testkey.match(/^(?:\d+-)?cas(\d+)-(.+?)(?:-(?:ai|noai))?$/);
 			if (m) {
 				const [, casNum, type] = m;
@@ -73,6 +74,8 @@ function listTests() {
 					name: `Cas ${casNum} - ${typeLabel}`,
 					alias,
 					estimatedMs: estimatedMs(history, filename),
+					environmentId: env.environmentId,
+					environmentName: env.environmentName,
 				};
 			}
 			return {
@@ -84,17 +87,19 @@ function listTests() {
 				name: testkey.replace(/-/g, " "),
 				alias,
 				estimatedMs: estimatedMs(history, filename),
+				environmentId: env.environmentId,
+				environmentName: env.environmentName,
 			};
 		})
 		.sort((a, b) => a.filename.localeCompare(b.filename));
 }
 
-function listScreenshots() {
+async function listScreenshots() {
 	if (!fs.existsSync(SCREENSHOTS_DIR)) return [];
 
 	// Build a map testkey → display name from the live test list (includes aliases)
 	const testDisplayNames = {};
-	for (const t of listTests()) {
+	for (const t of await listTests()) {
 		testDisplayNames[t.filename.replace(".spec.ts", "")] = t.alias || t.name;
 	}
 
@@ -135,36 +140,51 @@ function listScreenshots() {
 	return groups;
 }
 
-function loadGroups() {
-	try {
-		return JSON.parse(fs.readFileSync(GROUPS_FILE, "utf-8"));
-	} catch {
-		return [];
+async function loadGroups() {
+	const rows = await db.group.findMany({ orderBy: { createdAt: "asc" } });
+	return rows.map((g) => ({ id: g.id, name: g.name, tests: JSON.parse(g.testsJson) }));
+}
+
+async function saveGroups(data) {
+	const ids = data.map((g) => g.id);
+	await db.group.deleteMany({ where: { id: { notIn: ids.length ? ids : ["__none__"] } } });
+	for (const g of data) {
+		await db.group.upsert({
+			where: { id: g.id },
+			create: { id: g.id, name: g.name, testsJson: JSON.stringify(g.tests) },
+			update: { name: g.name, testsJson: JSON.stringify(g.tests) },
+		});
 	}
 }
 
-function saveGroups(data) {
-	fs.writeFileSync(GROUPS_FILE, JSON.stringify(data, null, 2));
+async function loadAliases() {
+	const rows = await db.testAlias.findMany();
+	return Object.fromEntries(rows.map((r) => [r.testkey, r.alias]));
 }
 
-function loadAliases() {
-	try { return JSON.parse(fs.readFileSync(ALIASES_FILE, "utf-8")); } catch { return {}; }
+async function saveAliases(data) {
+	const keys = Object.keys(data);
+	await db.testAlias.deleteMany({ where: { testkey: { notIn: keys.length ? keys : ["__none__"] } } });
+	for (const k of keys) {
+		await db.testAlias.upsert({ where: { testkey: k }, create: { testkey: k, alias: data[k] }, update: { alias: data[k] } });
+	}
 }
 
-function saveAliases(data) {
-	fs.writeFileSync(ALIASES_FILE, JSON.stringify(data, null, 2));
+async function loadRunHistory() {
+	const rows = await db.runHistory.findMany();
+	return Object.fromEntries(rows.map((r) => [r.filename, JSON.parse(r.durationsJson)]));
 }
 
-function loadRunHistory() {
-	try { return JSON.parse(fs.readFileSync(RUN_HISTORY_FILE, "utf-8")); } catch { return {}; }
-}
-
-function recordRunDuration(filename, durationMs) {
-	const history = loadRunHistory();
-	if (!history[filename]) history[filename] = [];
-	history[filename].push(Math.round(durationMs));
-	if (history[filename].length > 5) history[filename] = history[filename].slice(-5);
-	fs.writeFileSync(RUN_HISTORY_FILE, JSON.stringify(history, null, 2));
+async function recordRunDuration(filename, durationMs) {
+	const existing = await db.runHistory.findUnique({ where: { filename } });
+	let durations = existing ? JSON.parse(existing.durationsJson) : [];
+	durations.push(Math.round(durationMs));
+	if (durations.length > 5) durations = durations.slice(-5);
+	await db.runHistory.upsert({
+		where: { filename },
+		create: { filename, durationsJson: JSON.stringify(durations) },
+		update: { durationsJson: JSON.stringify(durations) },
+	});
 }
 
 function estimatedMs(history, filename) {
@@ -173,7 +193,7 @@ function estimatedMs(history, filename) {
 	return Math.round(runs.reduce((a, b) => a + b, 0) / runs.length);
 }
 
-function startRun(filename) {
+function startRun(filename, baseUrl) {
 	const runId =
 		Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	const run = { lines: [], status: "running", clients: new Set(), kill: null };
@@ -185,10 +205,10 @@ function startRun(filename) {
 
 	const proc = spawn(
 		"node_modules/.bin/playwright",
-		["test", `tests/${filename}`, "--reporter=line", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
+		["test", `data/versioned/tests/${filename}`, "--reporter=line,./step-reporter.cjs", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
 		{
 			cwd: E2E_DIR,
-			env: { ...process.env, ...envLocal },
+			env: { ...process.env, ...envLocal, ...(baseUrl ? { BASE_URL: baseUrl } : {}) },
 			stdio: ["ignore", "pipe", "pipe"],
 		},
 	);
@@ -214,11 +234,11 @@ function startRun(filename) {
 	proc.stdout.on("data", push);
 	proc.stderr.on("data", push);
 
-	proc.on("close", (code) => {
+	proc.on("close", async (code) => {
 		clearTimeout(autoKillTimer);
 		run.status = code === 0 ? "passed" : "failed";
-		if (code === 0) recordRunDuration(filename, Date.now() - startTime);
-		const newEstimatedMs = estimatedMs(loadRunHistory(), filename);
+		if (code === 0) await recordRunDuration(filename, Date.now() - startTime);
+		const newEstimatedMs = estimatedMs(await loadRunHistory(), filename);
 		const msg = `data: ${JSON.stringify({ done: true, status: run.status, estimatedMs: newEstimatedMs })}\n\n`;
 		for (const res of run.clients) {
 			res.write(msg);
@@ -282,42 +302,42 @@ app.get("/screenshots-img/*", (req, res) => {
 const api = express.Router();
 app.use("/api", requireAuth, api);
 
-api.get("/screenshots", (req, res) => {
-	res.json(listScreenshots());
+api.get("/screenshots", async (req, res) => {
+	res.json(await listScreenshots());
 });
 
-api.get("/tests", (req, res) => {
-	res.json(listTests());
+api.get("/tests", async (req, res) => {
+	res.json(await listTests());
 });
 
-api.get("/test-aliases", (req, res) => {
-	res.json(loadAliases());
+api.get("/test-aliases", async (req, res) => {
+	res.json(await loadAliases());
 });
 
-api.put("/test-aliases/:testkey", (req, res) => {
+api.put("/test-aliases/:testkey", async (req, res) => {
 	try {
-		const aliases = loadAliases();
+		const aliases = await loadAliases();
 		const alias = (req.body.alias || "").trim();
 		if (alias) {
 			aliases[req.params.testkey] = alias;
 		} else {
 			delete aliases[req.params.testkey];
 		}
-		saveAliases(aliases);
+		await saveAliases(aliases);
 		res.json({ ok: true });
 	} catch {
 		res.status(400).send("Bad request");
 	}
 });
 
-api.delete("/test-aliases/:testkey", (req, res) => {
-	const aliases = loadAliases();
+api.delete("/test-aliases/:testkey", async (req, res) => {
+	const aliases = await loadAliases();
 	delete aliases[req.params.testkey];
-	saveAliases(aliases);
+	await saveAliases(aliases);
 	res.sendStatus(204);
 });
 
-api.delete("/tests/:testkey", (req, res) => {
+api.delete("/tests/:testkey", async (req, res) => {
 	const testkey = req.params.testkey;
 	const filename = testkey + ".spec.ts";
 	try { fs.unlinkSync(path.join(TESTS_DIR, filename)); } catch {}
@@ -325,89 +345,147 @@ api.delete("/tests/:testkey", (req, res) => {
 	if (fs.existsSync(screenshotFolder)) {
 		fs.rmSync(screenshotFolder, { recursive: true, force: true });
 	}
-	for (const p of [
-		path.join(DATA_DIR, "actionTest", testkey + ".json"),
-		path.join(SPECS_DIR, testkey + ".md"),
-		path.join(DATA_DIR, "promptTest", testkey + ".json"),
-		path.join(PENDING_DIR, testkey + ".spec.ts"),
-		path.join(DATA_DIR, `run-${testkey}-last.log`),
-		path.join(DATA_DIR, `run-${testkey}-last-failed.log`),
-	]) { try { fs.unlinkSync(p); } catch {} }
-	const grps = loadGroups();
+	try { fs.unlinkSync(path.join(PENDING_DIR, testkey + ".spec.ts")); } catch {}
+	await db.spec.deleteMany({ where: { testname: testkey } });
+	await db.testAction.deleteMany({ where: { testname: testkey } });
+	await db.testPrompt.deleteMany({ where: { testname: testkey } });
+	const grps = await loadGroups();
 	const grpsUpdated = grps.map(g => ({ ...g, tests: g.tests.filter(t => t !== filename) }));
-	saveGroups(grpsUpdated);
-	const history = loadRunHistory();
-	if (history[filename]) {
-		delete history[filename];
-		fs.writeFileSync(RUN_HISTORY_FILE, JSON.stringify(history, null, 2));
-	}
-	const aliases = loadAliases();
-	if (aliases[testkey]) { delete aliases[testkey]; saveAliases(aliases); }
+	await saveGroups(grpsUpdated);
+	await db.runHistory.deleteMany({ where: { filename } });
+	const aliases = await loadAliases();
+	if (aliases[testkey]) { delete aliases[testkey]; await saveAliases(aliases); }
 	res.sendStatus(204);
 });
 
-api.get("/groups", (req, res) => {
-	res.json(loadGroups());
+api.get("/groups", async (req, res) => {
+	res.json(await loadGroups());
 });
 
-api.post("/session", (req, res) => {
+api.post("/session", async (req, res) => {
 	try {
-		fs.writeFileSync(SESSION_FILE, JSON.stringify(req.body, null, 2));
+		const all = Array.isArray(req.body.all) ? req.body.all : [];
+		const failed = Array.isArray(req.body.failed) ? req.body.failed : [];
+		await db.session.upsert({
+			where: { id: 1 },
+			create: { id: 1, allJson: JSON.stringify(all), failedJson: JSON.stringify(failed) },
+			update: { allJson: JSON.stringify(all), failedJson: JSON.stringify(failed) },
+		});
 		res.sendStatus(204);
 	} catch {
 		res.status(400).send("Bad request");
 	}
 });
 
-api.get("/session", (req, res) => {
-	try {
-		const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
-		res.json(data);
-	} catch {
+api.get("/session", async (req, res) => {
+	const session = await db.session.findUnique({ where: { id: 1 } });
+	if (!session) {
 		res.status(404).send("No session");
+		return;
 	}
+	res.json({ all: JSON.parse(session.allJson), failed: JSON.parse(session.failedJson) });
 });
 
-api.post("/groups", (req, res) => {
+api.post("/groups", async (req, res) => {
 	try {
 		const name = (req.body.name || "").trim();
 		if (!name) { res.status(400).send("Name required"); return; }
-		const grps = loadGroups();
+		const grps = await loadGroups();
 		const newGroup = {
 			id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
 			name,
 			tests: [],
 		};
 		grps.push(newGroup);
-		saveGroups(grps);
+		await saveGroups(grps);
 		res.status(201).json(newGroup);
 	} catch {
 		res.status(400).send("Bad request");
 	}
 });
 
-api.put("/groups/:id", (req, res) => {
+api.put("/groups/:id", async (req, res) => {
 	try {
-		const grps = loadGroups();
+		const grps = await loadGroups();
 		const grp = grps.find((g) => g.id === req.params.id);
 		if (!grp) { res.status(404).send("Not found"); return; }
 		if (req.body.name !== undefined) grp.name = String(req.body.name).trim();
 		if (Array.isArray(req.body.tests)) {
 			grp.tests = req.body.tests;
 		}
-		saveGroups(grps);
+		await saveGroups(grps);
 		res.json(grp);
 	} catch {
 		res.status(400).send("Bad request");
 	}
 });
 
-api.delete("/groups/:id", (req, res) => {
-	const grps = loadGroups();
+api.delete("/groups/:id", async (req, res) => {
+	const grps = await loadGroups();
 	const idx = grps.findIndex((g) => g.id === req.params.id);
 	if (idx === -1) { res.status(404).send("Not found"); return; }
 	grps.splice(idx, 1);
-	saveGroups(grps);
+	await saveGroups(grps);
+	res.sendStatus(204);
+});
+
+api.get("/environment-colors", (req, res) => {
+	res.json(ENVIRONMENT_COLORS);
+});
+
+api.get("/environments", async (req, res) => {
+	const environments = await db.environment.findMany({ orderBy: { createdAt: "asc" } });
+	res.json(environments);
+});
+
+api.post("/environments", async (req, res) => {
+	const name = (req.body.name || "").trim();
+	const url = (req.body.url || "").trim();
+	const comment = (req.body.comment || "").trim();
+	const color = req.body.color;
+	if (!name || !url) { res.status(400).send("Name and url required"); return; }
+	if (!ENVIRONMENT_COLORS.includes(color)) { res.status(400).send("Invalid color"); return; }
+	try {
+		const environment = await db.environment.create({ data: { name, url, comment: comment || null, color } });
+		res.status(201).json(environment);
+	} catch {
+		res.status(400).send("Bad request");
+	}
+});
+
+api.put("/environments/:id", async (req, res) => {
+	const id = Number(req.params.id);
+	if (!Number.isInteger(id)) { res.status(400).send("Invalid id"); return; }
+	const data = {};
+	if (req.body.name !== undefined) {
+		const name = String(req.body.name).trim();
+		if (!name) { res.status(400).send("Name required"); return; }
+		data.name = name;
+	}
+	if (req.body.url !== undefined) {
+		const url = String(req.body.url).trim();
+		if (!url) { res.status(400).send("Url required"); return; }
+		data.url = url;
+	}
+	if (req.body.comment !== undefined) {
+		data.comment = String(req.body.comment).trim() || null;
+	}
+	if (req.body.color !== undefined) {
+		if (!ENVIRONMENT_COLORS.includes(req.body.color)) { res.status(400).send("Invalid color"); return; }
+		data.color = req.body.color;
+	}
+	try {
+		const environment = await db.environment.update({ where: { id }, data });
+		res.json(environment);
+	} catch {
+		res.status(404).send("Not found");
+	}
+});
+
+api.delete("/environments/:id", async (req, res) => {
+	const id = Number(req.params.id);
+	if (!Number.isInteger(id)) { res.status(400).send("Invalid id"); return; }
+	await db.environment.deleteMany({ where: { id } });
 	res.sendStatus(204);
 });
 
@@ -446,7 +524,8 @@ api.post("/run/:filename", (req, res) => {
 		res.status(400).send("Invalid test file");
 		return;
 	}
-	const runId = startRun(filename);
+	const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl.trim() : "";
+	const runId = startRun(filename, baseUrl || undefined);
 	res.json({ runId });
 });
 
@@ -491,22 +570,22 @@ api.post("/spec-regen/:testname", (req, res) => {
 	res.sendStatus(202);
 });
 
-api.get("/spec/:testname", (req, res) => {
-	const specFile = path.join(SPECS_DIR, req.params.testname + ".md");
-	if (!path.resolve(specFile).startsWith(SPECS_DIR) || !fs.existsSync(specFile)) {
+api.get("/spec/:testname", async (req, res) => {
+	const spec = await db.spec.findUnique({ where: { testname: req.params.testname } });
+	if (!spec) {
 		res.status(404).json({});
 		return;
 	}
-	res.json({ spec: fs.readFileSync(specFile, "utf-8") });
+	res.json({ spec: spec.content });
 });
 
-api.get("/actions/:testKey", (req, res) => {
-	const jsonPath = path.join(DATA_DIR, "actionTest", `${req.params.testKey}.json`);
-	if (!jsonPath.startsWith(path.join(DATA_DIR, "actionTest")) || !fs.existsSync(jsonPath)) {
+api.get("/actions/:testKey", async (req, res) => {
+	const action = await db.testAction.findUnique({ where: { testname: req.params.testKey } });
+	if (!action) {
 		res.status(404).send("Not found");
 		return;
 	}
-	res.type("json").send(fs.readFileSync(jsonPath, "utf-8"));
+	res.json({ test: action.testname, file: action.file, description: action.description, actions: JSON.parse(action.actionsJson) });
 });
 
 api.get("/pending", (req, res) => {
@@ -538,10 +617,11 @@ api.all("/pending/:testname/:action(run|confirm|discard)", (req, res) => {
 		const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 		const run = { lines: [], status: "running", clients: new Set(), kill: null };
 		runs.set(runId, run);
+		const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl.trim() : "";
 		const proc = spawn(
 			"npx",
-			["playwright", "test", `tests/${tempName}.spec.ts`, "--reporter=list", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
-			{ cwd: E2E_DIR, env: { ...process.env, ...envLocal }, detached: true }
+			["playwright", "test", `data/versioned/tests/${tempName}.spec.ts`, "--reporter=list,./step-reporter.cjs", "--project=chromium", ...(process.env.HEADLESS === "false" ? ["--headed"] : [])],
+			{ cwd: E2E_DIR, env: { ...process.env, ...envLocal, ...(baseUrl ? { BASE_URL: baseUrl } : {}) }, detached: true }
 		);
 		run.kill = () => {
 			try { process.kill(-proc.pid, "SIGKILL"); } catch {}
@@ -570,55 +650,30 @@ api.all("/pending/:testname/:action(run|confirm|discard)", (req, res) => {
 	}
 });
 
-api.get("/prompt/:testKey", (req, res) => {
-	const jsonPath = path.join(DATA_DIR, "promptTest", `${req.params.testKey}.json`);
-	if (!jsonPath.startsWith(path.join(DATA_DIR, "promptTest")) || !fs.existsSync(jsonPath)) {
+api.get("/prompt/:testKey", async (req, res) => {
+	const prompt = await db.testPrompt.findUnique({ where: { testname: req.params.testKey } });
+	if (!prompt) {
 		res.status(404).send("Not found");
 		return;
 	}
-	res.type("json").send(fs.readFileSync(jsonPath, "utf-8"));
+	res.json(JSON.parse(prompt.messagesJson));
 });
 
-api.get("/config", (req, res) => {
-	res.json(parseEnvFile(path.join(E2E_DIR, ".env")));
-});
-
-api.post("/config", (req, res) => {
+api.get("/chat-logs", async (req, res) => {
 	try {
-		const data = req.body;
-		const lines = Object.entries(data)
-			.filter(([k]) => k.trim())
-			.map(([k, v]) => `${k.trim()}=${v}`);
-		fs.writeFileSync(path.join(E2E_DIR, ".env"), lines.join("\n") + "\n", "utf-8");
-		Object.keys(envLocal).forEach(k => delete envLocal[k]);
-		Object.assign(envLocal, data);
-		res.json({ ok: true });
-	} catch {
-		res.status(400).send("Bad request");
-	}
-});
-
-api.get("/chat-logs", (req, res) => {
-	try {
-		fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
-		const files = fs.readdirSync(CHAT_LOGS_DIR)
-			.filter(f => f.endsWith(".json"))
-			.sort()
-			.reverse();
-		const summaries = files.map(f => {
+		const logs = await db.chatLog.findMany({
+			orderBy: { startedAt: "desc" },
+			select: { id: true, startedAt: true, endedAt: true, durationMs: true, totals: true, messages: true },
+		});
+		const summaries = logs.map((log) => {
+			let messageCount = 0;
 			try {
-				const log = JSON.parse(fs.readFileSync(path.join(CHAT_LOGS_DIR, f), "utf-8"));
-				return {
-					filename: f,
-					startedAt: log.startedAt,
-					endedAt: log.endedAt,
-					durationMs: log.durationMs,
-					totals: log.totals,
-					messageCount: Array.isArray(log.messages) ? log.messages.filter(m => m.role === "user").length : 0,
-				};
-			} catch {
-				return { filename: f, startedAt: null, totals: null };
-			}
+				const messages = JSON.parse(log.messages);
+				messageCount = Array.isArray(messages) ? messages.filter((m) => m.role === "user").length : 0;
+			} catch {}
+			let totals = null;
+			try { totals = log.totals ? JSON.parse(log.totals) : null; } catch {}
+			return { id: log.id, startedAt: log.startedAt, endedAt: log.endedAt, durationMs: log.durationMs, totals, messageCount };
 		});
 		res.json(summaries);
 	} catch (err) {
@@ -626,45 +681,64 @@ api.get("/chat-logs", (req, res) => {
 	}
 });
 
-api.get("/chat-logs/:filename", (req, res) => {
-	const filename = path.basename(req.params.filename);
-	const logPath = path.join(CHAT_LOGS_DIR, filename);
-	if (!logPath.startsWith(CHAT_LOGS_DIR) || !fs.existsSync(logPath)) {
+api.get("/chat-logs/:id", async (req, res) => {
+	const id = Number(req.params.id);
+	if (!Number.isInteger(id)) {
+		res.status(400).send("Invalid id");
+		return;
+	}
+	const log = await db.chatLog.findUnique({ where: { id } });
+	if (!log) {
 		res.status(404).send("Not found");
 		return;
 	}
-	res.type("json").send(fs.readFileSync(logPath, "utf-8"));
+	res.json({
+		runId: log.runId,
+		startedAt: log.startedAt,
+		endedAt: log.endedAt,
+		durationMs: log.durationMs,
+		totals: log.totals ? JSON.parse(log.totals) : null,
+		apiCalls: log.apiCalls ? JSON.parse(log.apiCalls) : [],
+		messages: JSON.parse(log.messages),
+	});
 });
 
-api.delete("/chat-logs/:filename", (req, res) => {
-	const filename = path.basename(req.params.filename);
-	const logPath = path.join(CHAT_LOGS_DIR, filename);
-	if (!logPath.startsWith(CHAT_LOGS_DIR)) {
-		res.status(400).send("Invalid filename");
+api.delete("/chat-logs/:id", async (req, res) => {
+	const id = Number(req.params.id);
+	if (!Number.isInteger(id)) {
+		res.status(400).send("Invalid id");
 		return;
 	}
-	if (fs.existsSync(logPath)) {
-		fs.unlinkSync(logPath);
-	}
+	await db.chatLog.deleteMany({ where: { id } });
 	res.sendStatus(204);
 });
 
 api.post("/chat", (req, res) => {
 	try {
-		const { message, images, sessionId, instructions } = req.body;
+		const { message, images, sessionId, instructions, environmentId, environmentName, environmentUrl, environmentComment } = req.body;
 		const hasImages = Array.isArray(images) && images.length > 0;
 		if (!hasImages && (!message || typeof message !== "string" || !message.trim())) {
 			res.status(400).send("Message required");
 			return;
 		}
-		const runId = startChatRun((message || "").trim(), hasImages ? images : null, sessionId || null, instructions || null);
+		const envId = Number(environmentId);
+		if (!Number.isInteger(envId)) {
+			res.status(400).send("environmentId required");
+			return;
+		}
+		let envContext = `This test is being generated for the environment "${environmentName || ""}" (${(environmentUrl || "").trim()}).`;
+		if (typeof environmentComment === "string" && environmentComment.trim()) {
+			envContext += ` Environment notes: ${environmentComment.trim()}. If these notes contain values needed to execute the test (OTP codes, credentials, feature flags, etc.), hardcode them literally in the generated Playwright script — this test is written specifically for this environment.`;
+		}
+		const mergedInstructions = [envContext, instructions].filter(Boolean).join("\n\n") || null;
+		const runId = startChatRun((message || "").trim(), hasImages ? images : null, sessionId || null, mergedInstructions, envId);
 		res.json({ runId });
 	} catch {
 		res.status(400).send("Bad request");
 	}
 });
 
-api.post("/chat-save", (req, res) => {
+api.post("/chat-save", async (req, res) => {
 	try {
 		const { filename, messages } = req.body;
 		if (!filename || !Array.isArray(messages)) {
@@ -672,10 +746,12 @@ api.post("/chat-save", (req, res) => {
 			return;
 		}
 		const safe = path.basename(filename).replace(/[^a-zA-Z0-9_\-.]/g, '_');
-		const dest = path.join(E2E_DIR, "tests", "prompt", safe);
-		fs.mkdirSync(path.dirname(dest), { recursive: true });
-		fs.writeFileSync(dest, JSON.stringify(messages, null, 2), "utf8");
-		res.json({ path: dest });
+		await db.savedChat.upsert({
+			where: { filename: safe },
+			create: { filename: safe, messagesJson: JSON.stringify(messages) },
+			update: { messagesJson: JSON.stringify(messages) },
+		});
+		res.json({ ok: true, filename: safe });
 	} catch (err) {
 		res.status(500).send(err.message);
 	}
@@ -728,7 +804,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
 	console.log(`Test runner available at http://localhost:${PORT}`);
-	generateMissingSpecs();
+	generateMissingSpecs().catch(() => {});
 });
 
 // Reap zombie children re-parented from Chromium/Playwright.

@@ -8,7 +8,7 @@
     "esModuleInterop": true
   },
   "include": [
-    "tests/**/*.ts",
+    "data/versioned/tests/**/*.ts",
     "playwright.config.ts"
   ]
 }

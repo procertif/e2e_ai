@@ -5,6 +5,8 @@ export interface Test {
   type: string;
   typeLabel: string;
   estimatedMs?: number;
+  environmentId?: number | null;
+  environmentName?: string | null;
 }
 
 export interface Group {
@@ -23,4 +25,12 @@ export interface ScenarioData {
   test: string;
   file: string;
   actions: ScenarioAction[];
+}
+
+export interface Environment {
+  id: number;
+  name: string;
+  url: string;
+  comment: string | null;
+  color: string;
 }

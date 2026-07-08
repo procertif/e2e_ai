@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ChatLog {
+  id         Int       @id @default(autoincrement())
+  runId      String
+  startedAt  DateTime
+  endedAt    DateTime?
+  durationMs Int?
+  totals     String?
+  apiCalls   String?
+  messages   String
+  createdAt  DateTime  @default(now())
+
+  @@map("chat_logs")
+}
+
+model Spec {
+  id        Int      @id @default(autoincrement())
+  testname  String   @unique
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("specs")
+}
+
+model Environment {
+  id        Int      @id @default(autoincrement())
+  name      String
+  url       String
+  comment   String?
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("environments")
+}
+
+model Group {
+  id        String   @id
+  name      String
+  testsJson String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("groups")
+}
+
+model TestAlias {
+  testkey String @id
+  alias   String
+
+  @@map("test_aliases")
+}
+
+model RunHistory {
+  filename      String @id
+  durationsJson String
+
+  @@map("run_history")
+}
+
+model Session {
+  id         Int      @id @default(autoincrement())
+  allJson    String
+  failedJson String
+  updatedAt  DateTime @updatedAt
+
+  @@map("sessions")
+}
+
+model TestAction {
+  testname        String   @id
+  file            String
+  description     String
+  actionsJson     String
+  environmentId   Int?
+  environmentName String?
+  updatedAt       DateTime @updatedAt
+
+  @@map("test_actions")
+}
+
+model TestPrompt {
+  testname     String   @id
+  messagesJson String
+  updatedAt    DateTime @updatedAt
+
+  @@map("test_prompts")
+}
+
+model SavedChat {
+  id           Int      @id @default(autoincrement())
+  filename     String   @unique
+  messagesJson String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("saved_chats")
+}

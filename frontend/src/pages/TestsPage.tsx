@@ -1,21 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { apiFetch, apiStreamUrl } from "../api";
+import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
-import { GROUP_COLORS, badgeClass, fuzzyMatch, stripAnsi, formatDuration, filenameToFolder } from "../utils/format";
-import type { Test, Group, ScenarioAction } from "../types";
+import { GROUP_COLORS, badgeClass, fuzzyMatch, formatDuration } from "../utils/format";
+import { environmentColorHex } from "../utils/environmentColors";
+import { useSelectedEnvironment } from "../hooks/useSelectedEnvironment";
+import { useQueue } from "../queue/QueueContext";
+import type { Test, Group } from "../types";
 import "../styles/groups.css";
-
-const QUEUE_STORAGE_KEY = "e2e_queue";
-
-interface ResultsModalData {
-  launched: number;
-  passed: number;
-  failed: number;
-  timeStr: string;
-  sessionTests: Test[];
-  failedTests: Test[];
-  failingActions: (ScenarioAction | null)[];
-}
+import "../styles/environments.css";
 
 function cardId(filename: string) {
   return "card-" + filename.replace(/[^a-zA-Z0-9]/g, "-");
@@ -38,20 +30,27 @@ function getDragAfterElement(container: HTMLElement, y: number) {
 
 export default function TestsPage() {
   const { t, ready } = useI18n();
+  const { environments, selectedId, setSelectedId, selectedEnvironment } = useSelectedEnvironment();
+  const {
+    queue,
+    setQueue,
+    statusRef,
+    outputRef,
+    resultsModal,
+    setResultsModal,
+    addToQueue,
+    removeFromQueue,
+    runTest,
+    runQueue,
+    resetQueue,
+    isAnyRunning,
+  } = useQueue();
   const [allTests, setAllTests] = useState<Test[]>([]);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [activeTab, setActiveTab] = useState<"tests" | "groups">("tests");
   const [query, setQuery] = useState("");
-  const [queue, setQueue] = useState<Test[]>([]);
   const [draggingFilename, setDraggingFilename] = useState<string | null>(null);
-  const [resultsModal, setResultsModal] = useState<ResultsModalData | null>(null);
-
-  // High-frequency SSE updates (status/output) live in refs to avoid
-  // rebuilding state objects on every streamed chunk; `tick` forces re-render.
-  const statusRef = useRef<Record<string, string>>({});
-  const outputRef = useRef<Record<string, string>>({});
-  const [, setTick] = useState(0);
-  const rerender = () => setTick((v) => v + 1);
+  const [copiedFilename, setCopiedFilename] = useState<string | null>(null);
 
   const queueListRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
@@ -67,164 +66,38 @@ export default function TestsPage() {
       setAllTests(tests);
       setAllGroups(grps);
 
-      const savedQueue: string[] = JSON.parse(localStorage.getItem(QUEUE_STORAGE_KEY) || "[]");
-      const restored = savedQueue.map((fn) => tests.find((tst: Test) => tst.filename === fn)).filter(Boolean);
-      setQueue(restored);
-      for (const tst of restored) statusRef.current[tst.filename] = "idle";
+      // Hydrate queue entries restored (filename-only) from localStorage with
+      // full test metadata, without disturbing entries/status already live
+      // from a previous mount of this page in the same session.
+      setQueue((prev) => prev.map((tst) => tests.find((x: Test) => x.filename === tst.filename) || tst));
+      for (const tst of queue) {
+        if (!statusRef.current[tst.filename]) statusRef.current[tst.filename] = "idle";
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
-
-  useEffect(() => {
-    localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue.map((tst) => tst.filename)));
-  }, [queue]);
 
   const queueSet = new Set(queue.map((tst) => tst.filename));
 
-  const addToQueue = (test: Test) => {
-    if (queueSet.has(test.filename)) return;
-    statusRef.current[test.filename] = "idle";
-    setQueue((prev) => [...prev, test]);
-  };
-
-  const removeFromQueue = (filename: string) => {
-    if (statusRef.current[filename] === "running") return;
-    setQueue((prev) => prev.filter((tst) => tst.filename !== filename));
-    delete statusRef.current[filename];
-    delete outputRef.current[filename];
-    rerender();
-  };
-
-  const updateEstimate = (filename: string, ms: number) => {
-    setAllTests((prev) => prev.map((tst) => (tst.filename === filename ? { ...tst, estimatedMs: ms } : tst)));
-    setQueue((prev) => prev.map((tst) => (tst.filename === filename ? { ...tst, estimatedMs: ms } : tst)));
-  };
-
-  const setCardStatus = (filename: string, status: string) => {
-    statusRef.current[filename] = status;
-    rerender();
-  };
-  const appendOutput = (filename: string, text: string) => {
-    outputRef.current[filename] = (outputRef.current[filename] || "") + stripAnsi(text);
-    rerender();
-  };
-  const clearOutput = (filename: string) => {
-    outputRef.current[filename] = "";
-    rerender();
-  };
-
-  const runTest = (test: Test): Promise<void> => {
-    if (statusRef.current[test.filename] === "running") return Promise.resolve();
-    statusRef.current[test.filename] = "running";
-    clearOutput(test.filename);
-    setCardStatus(test.filename, "running");
-
-    return new Promise<void>((resolve) => {
-      (async () => {
-        const folder = filenameToFolder(test.filename);
-        await apiFetch("/api/screenshots/" + encodeURIComponent(folder), { method: "DELETE" }).catch(() => {});
-
-        let runId;
-        try {
-          const res = await apiFetch("/api/run/" + encodeURIComponent(test.filename), { method: "POST" });
-          const data = await res.json();
-          runId = data.runId;
-        } catch {
-          appendOutput(test.filename, t("error_run_failed") + "\n");
-          setCardStatus(test.filename, "failed");
-          resolve();
-          return;
-        }
-
-        const es = new EventSource(apiStreamUrl("/api/stream/" + runId));
-        es.onmessage = (evt) => {
-          const msg = JSON.parse(evt.data);
-          if (msg.text) {
-            appendOutput(test.filename, msg.text);
-          }
-          if (msg.done) {
-            setCardStatus(test.filename, msg.status);
-            if (msg.estimatedMs != null) {
-              updateEstimate(test.filename, msg.estimatedMs);
-            }
-            es.close();
-            resolve();
-          }
-        };
-        es.onerror = async () => {
-          es.close();
-          for (let i = 0; i < 120; i++) {
-            await new Promise((r) => setTimeout(r, 1000));
-            try {
-              const r = await apiFetch("/api/run-status/" + runId);
-              if (r.ok) {
-                const data = await r.json();
-                if (data.status !== "running") {
-                  setCardStatus(test.filename, data.status);
-                  resolve();
-                  return;
-                }
-              }
-            } catch {}
-          }
-          setCardStatus(test.filename, "failed");
-          resolve();
-        };
-      })();
-    });
-  };
-
-  const runQueue = async () => {
-    const sessionTests = [...queue];
-    if (sessionTests.length === 0) return;
-    const startTime = Date.now();
-    for (const tst of sessionTests) {
-      await runTest(tst);
+  const environmentBadge = (tst: Test) => {
+    if (!tst.environmentName) {
+      return <span className="test-badge-environment">{t("environment_unassigned")}</span>;
     }
-    await showResultsModal(sessionTests, Date.now() - startTime);
+    const env = environments.find((e) => e.id === tst.environmentId);
+    return (
+      <span className="test-badge-environment">
+        {env && <span className="environment-color-dot" style={{ background: environmentColorHex(env.color) }} />}
+        {tst.environmentName}
+      </span>
+    );
   };
 
-  const showResultsModal = async (sessionTests: Test[], elapsedMs: number) => {
-    const launched = sessionTests.length;
-    const passed = sessionTests.filter((tst) => statusRef.current[tst.filename] === "passed").length;
-    const failed = sessionTests.filter((tst) => statusRef.current[tst.filename] === "failed").length;
-
-    const totalSec = elapsedMs / 1000;
-    const minutes = Math.floor(totalSec / 60);
-    const secs = (totalSec % 60).toFixed(0).padStart(2, "0");
-    const timeStr = minutes > 0 ? `${minutes}m ${secs}s` : `${totalSec.toFixed(1)}s`;
-
-    const failedTests = sessionTests.filter((tst) => statusRef.current[tst.filename] === "failed");
-
-    await apiFetch("/api/session", {
-      method: "POST",
-      body: JSON.stringify({
-        all: sessionTests.map((tst) => filenameToFolder(tst.filename)),
-        failed: failedTests.map((tst) => filenameToFolder(tst.filename)),
-      }),
-    }).catch(() => {});
-
-    const findFailingAction = async (tst: Test): Promise<ScenarioAction | null> => {
-      const testKey = tst.filename.replace(/\.spec\.ts$/, "");
-      try {
-        const [actionsRes, countRes] = await Promise.all([
-          apiFetch(`/api/actions/${encodeURIComponent(testKey)}`),
-          apiFetch(`/api/screenshots/${encodeURIComponent(testKey)}`),
-        ]);
-        if (!actionsRes.ok) return null;
-        const data = await actionsRes.json();
-        const n = countRes.ok ? (await countRes.json()).count : 0;
-        return data.actions[n] ?? data.actions[data.actions.length - 1] ?? null;
-      } catch {
-        return null;
-      }
-    };
-
-    let failingActions: (ScenarioAction | null)[] = [];
-    if (failedTests.length > 0) {
-      failingActions = await Promise.all(failedTests.map(findFailingAction));
-    }
-
-    setResultsModal({ launched, passed, failed, timeStr, sessionTests, failedTests, failingActions });
+  const copyOutput = async (filename: string) => {
+    try {
+      await navigator.clipboard.writeText(outputRef.current[filename] || "");
+      setCopiedFilename(filename);
+      setTimeout(() => setCopiedFilename((f) => (f === filename ? null : f)), 1500);
+    } catch {}
   };
 
   // ── Drag & drop (queue reorder) ──
@@ -286,6 +159,25 @@ export default function TestsPage() {
 
   return (
     <div className="app-content">
+      <div className="target-environment-bar">
+        <span className="environment-color-dot" style={{ background: selectedEnvironment ? environmentColorHex(selectedEnvironment.color) : "#ced4da" }} />
+        <label className="target-environment-label" htmlFor="target-environment-select">
+          {t("target_environment_label")}
+        </label>
+        <select
+          id="target-environment-select"
+          className="form-select form-select-sm target-environment-select"
+          value={selectedId ?? ""}
+          onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">{t("target_environment_none_option")}</option>
+          {environments.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="panels-layout">
         <div className="panel panel-available">
           <div className="panel-header">
@@ -332,6 +224,7 @@ export default function TestsPage() {
                       <div className="avail-item-info">
                         <p className="test-name">{tst.alias || tst.name}</p>
                         <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
+                        {environmentBadge(tst)}
                       </div>
                       {isQueued ? (
                         <button className="btn-remove-avail" title={t("btn_remove_from_queue_title")} onClick={() => removeFromQueue(tst.filename)}>
@@ -399,6 +292,14 @@ export default function TestsPage() {
               <button className="btn btn-primary btn-sm btn-run-all" onClick={runQueue}>
                 {t("btn_run_queue")}
               </button>
+              <button
+                className="btn btn-outline-secondary btn-sm btn-reset-queue"
+                disabled={isAnyRunning || queue.length === 0}
+                title={t("btn_reset_queue_title")}
+                onClick={resetQueue}
+              >
+                {t("btn_reset_queue")}
+              </button>
             </div>
             <span className="queue-count">{queueLabel}</span>
           </div>
@@ -442,6 +343,7 @@ export default function TestsPage() {
                             <div className="test-badges">
                               <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
                               {tst.estimatedMs ? <span className="badge-est">~{formatDuration(tst.estimatedMs)}</span> : null}
+                              {environmentBadge(tst)}
                             </div>
                           </div>
                         </div>
@@ -459,8 +361,18 @@ export default function TestsPage() {
                       </div>
                     </div>
                     {output && (
-                      <div className="output-area visible">
-                        <pre className="output-pre">{output}</pre>
+                      <div className="output-area visible" draggable={false}>
+                        <div className="output-toolbar">
+                          <button
+                            type="button"
+                            className="btn-copy-output"
+                            title={t("btn_copy_output_title")}
+                            onClick={() => copyOutput(tst.filename)}
+                          >
+                            {copiedFilename === tst.filename ? t("btn_copy_output_done") : t("btn_copy_output_title")}
+                          </button>
+                        </div>
+                        <pre className="output-pre" draggable={false}>{output}</pre>
                       </div>
                     )}
                   </div>
@@ -511,6 +423,7 @@ export default function TestsPage() {
                   </div>
                   {resultsModal.failedTests.map((tst, i) => {
                     const a = resultsModal.failingActions[i];
+                    const err = resultsModal.failureErrors[i];
                     return (
                       <div className="results-failure-item" key={tst.filename}>
                         <div className="results-failure-name">{tst.alias || tst.name}</div>
@@ -519,6 +432,7 @@ export default function TestsPage() {
                             {t("results_failed_step_prefix")} <strong>{a.index}</strong> — {a.description}
                           </div>
                         )}
+                        {err && <pre className="results-failure-error">{err}</pre>}
                       </div>
                     );
                   })}

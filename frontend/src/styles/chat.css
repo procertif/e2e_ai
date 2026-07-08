@@ -279,6 +279,62 @@
 .tool-pill--search { background: #e1f5fe; border-color: #81d4fa; color: #01579b; }
 .tool-pill--web    { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
 
+.tool-pill--expandable { cursor: pointer; user-select: none; }
+.tool-pill--expandable:hover { filter: brightness(0.96); }
+.tool-pill--open { border-style: solid; box-shadow: inset 0 0 0 1px currentColor; }
+
+.tool-pill-chevron {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+/* ── Live edit diff ── */
+.tool-diff {
+  margin: 0.35rem 0 0.5rem;
+  border: 1px solid #ffcc80;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.tool-diff-file {
+  padding: 0.35rem 0.75rem;
+  background: #fff3e0;
+  color: #c75a00;
+  font-family: "Fira Mono", "Consolas", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-bottom: 1px solid #ffcc80;
+}
+
+.tool-diff-body {
+  margin: 0;
+  padding: 0.4rem 0;
+  background: #0f1117;
+  font-family: "Fira Mono", "Consolas", monospace;
+  font-size: 0.775rem;
+  line-height: 1.5;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.diff-line {
+  padding: 0 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-marker {
+  display: inline-block;
+  width: 1.1em;
+  color: #6c757d;
+  user-select: none;
+}
+
+.diff-line--same { color: #adb5bd; }
+.diff-line--add  { background: rgba(46, 160, 67, 0.18); color: #7ee787; }
+.diff-line--del  { background: rgba(248, 81, 73, 0.15); color: #ff8b85; }
+
 /* ── Input area ── */
 .chat-input-area {
   background: #fff;

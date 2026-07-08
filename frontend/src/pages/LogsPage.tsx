@@ -41,7 +41,7 @@ interface LogDetail {
 }
 
 interface Session {
-  filename: string;
+  id: number;
   startedAt: string;
   totals?: Totals;
 }
@@ -150,7 +150,7 @@ export default function LogsPage() {
   const { t, ready, lang } = useI18n();
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [activeFilename, setActiveFilename] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
 
   useEffect(() => {
@@ -165,26 +165,26 @@ export default function LogsPage() {
     })();
   }, [ready]);
 
-  const selectSession = async (filename: string) => {
-    setActiveFilename(filename);
+  const selectSession = async (id: number) => {
+    setActiveId(id);
     setDetail({ loading: true });
     try {
-      const res = await apiFetch(`/api/chat-logs/${encodeURIComponent(filename)}`);
+      const res = await apiFetch(`/api/chat-logs/${id}`);
       setDetail({ log: await res.json() });
     } catch {
       setDetail({ error: true });
     }
   };
 
-  const deleteLog = async (filename: string) => {
+  const deleteLog = async (id: number) => {
     if (!confirm(t("logs_delete_confirm"))) return;
     try {
-      await apiFetch(`/api/chat-logs/${encodeURIComponent(filename)}`, { method: "DELETE" });
-      if (activeFilename === filename) {
-        setActiveFilename(null);
+      await apiFetch(`/api/chat-logs/${id}`, { method: "DELETE" });
+      if (activeId === id) {
+        setActiveId(null);
         setDetail(null);
       }
-      setSessions((prev) => (prev ? prev.filter((s) => s.filename !== filename) : prev));
+      setSessions((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
     } catch {
       alert("Erreur lors de la suppression.");
     }
@@ -215,9 +215,9 @@ export default function LogsPage() {
                 const tok = s.totals;
                 return (
                   <div
-                    className={"log-item" + (s.filename === activeFilename ? " active" : "")}
-                    key={s.filename}
-                    onClick={() => selectSession(s.filename)}
+                    className={"log-item" + (s.id === activeId ? " active" : "")}
+                    key={s.id}
+                    onClick={() => selectSession(s.id)}
                   >
                     <div className="log-item-top">
                       <div className="log-item-date">{fmtDate(s.startedAt, lang)}</div>
@@ -226,7 +226,7 @@ export default function LogsPage() {
                         title={t("logs_delete_title")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteLog(s.filename);
+                          deleteLog(s.id);
                         }}
                       >
                         <TrashIcon />

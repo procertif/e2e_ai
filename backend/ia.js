@@ -4,19 +4,38 @@ const os = require("os");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const db = require("./db");
 
 function isTestSpecPath(fp) {
 	return fp && fp.endsWith(".spec.ts") && fp.includes("/tests/") && !fp.includes("/pending/");
 }
 
-module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PENDING_DIR, CHAT_LOGS_DIR, envLocal }) {
-	const ANTHROPIC_CLIENT_ID = envLocal.ANTHROPIC_CLIENT_ID || process.env.ANTHROPIC_CLIENT_ID || "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-	const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, PENDING_DIR, envLocal }) {
+	const ANTHROPIC_CLIENT_ID = envLocal.ANTHROPIC_CLIENT_ID || process.env.ANTHROPIC_CLIENT_ID;
+	const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL;
 
 	const chatRuns = new Map();
 	const chatHistories = new Map(); // sessionId -> messages[]
 
 	const CREDENTIALS_PATH = path.join(os.homedir(), ".claude", ".credentials.json");
+
+	async function persistChatLog(log) {
+		try {
+			await db.chatLog.create({
+				data: {
+					runId: log.runId,
+					startedAt: new Date(log.startedAt),
+					endedAt: log.endedAt ? new Date(log.endedAt) : null,
+					durationMs: log.durationMs,
+					totals: JSON.stringify(log.error ? { ...log.totals, error: log.error } : log.totals),
+					apiCalls: JSON.stringify(log.apiCalls),
+					messages: JSON.stringify(log.messages || []),
+				},
+			});
+		} catch (err) {
+			console.error("[chat-log] Erreur d'enregistrement:", err.message || String(err));
+		}
+	}
 
 	const TOOLS = [
 		{
@@ -159,17 +178,12 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 
 	const ALLOWED_READ_PATHS = [
 		'/home/procertif',
-		'/app/screenshots',
-		'/app/tests',
 		'/app/data',
-		'/app/test-results',
 	];
 
 	const ALLOWED_WRITE_PATHS = [
 		'/home/procertif',
-		'/app/tests',
 		'/app/data',
-		'/app/test-results',
 	];
 
 	function isPathAllowed(filePath, allowedPaths) {
@@ -338,6 +352,22 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 		}
 	}
 
+	// Marks the last content block of the last message with an ephemeral cache
+	// breakpoint, without mutating the caller's history array — otherwise the
+	// tag would pile up on every past turn as the conversation grows. Without
+	// this, every API call in the tool-use loop re-sends (and re-pays for) the
+	// entire accumulated history: tool outputs, file reads, images, etc.
+	function withCachedTail(messages) {
+		if (messages.length === 0) return messages;
+		const last = messages[messages.length - 1];
+		const blocks = typeof last.content === "string"
+			? [{ type: "text", text: last.content }]
+			: last.content.map((b) => ({ ...b }));
+		if (blocks.length === 0) return messages;
+		blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: "ephemeral" } };
+		return [...messages.slice(0, -1), { ...last, content: blocks }];
+	}
+
 	async function callClaudeStream(token, messages, onEvent, instructions, signal) {
 		const systemBlocks = [
 			{ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
@@ -352,7 +382,7 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 			max_tokens: 16000,
 			system: systemBlocks,
 			tools: TOOLS,
-			messages,
+			messages: withCachedTail(messages),
 			stream: true,
 		}));
 
@@ -448,7 +478,7 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 		});
 	}
 
-	function startChatRun(message, images, sessionId, instructions) {
+	function startChatRun(message, images, sessionId, instructions, environmentId) {
 		const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 		const run = { events: [], status: "running", clients: new Set(), abort: null };
 		chatRuns.set(runId, run);
@@ -538,8 +568,11 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 			chatHistories.set(runId, history);
 			if (chatHistories.size > 50) chatHistories.delete([...chatHistories.keys()][0]);
 
+			const environment = Number.isInteger(environmentId)
+				? await db.environment.findUnique({ where: { id: environmentId } })
+				: null;
+
 			const actionTestDir = path.join(DATA_DIR, "actionTest");
-			const promptTestDir = path.join(DATA_DIR, "promptTest");
 			for (const msg of history) {
 				if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
 				for (const block of msg.content) {
@@ -547,15 +580,27 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 					const fp = block.input?.file_path || "";
 					if (!fp.startsWith(actionTestDir)) continue;
 					const testKey = path.basename(fp, ".json");
-					fs.mkdirSync(promptTestDir, { recursive: true });
+
+					// Claude writes this JSON to disk itself (only viable path given its
+					// Write/Edit tools). The DB row is what the app actually reads from;
+					// the file stays on disk only as a few-shot format reference for Claude.
+					try {
+						const parsed = JSON.parse(fs.readFileSync(fp, "utf-8"));
+						await db.testAction.upsert({
+							where: { testname: testKey },
+							create: { testname: testKey, file: parsed.file || "", description: parsed.description || "", actionsJson: JSON.stringify(parsed.actions || []), environmentId: environment?.id ?? null, environmentName: environment?.name ?? null },
+							update: { file: parsed.file || "", description: parsed.description || "", actionsJson: JSON.stringify(parsed.actions || []), environmentId: environment?.id ?? null, environmentName: environment?.name ?? null },
+						});
+					} catch {}
+
 					const userMessages = history
 						.filter(m => m.role === "user" && !( Array.isArray(m.content) && m.content[0]?.type === "tool_result" ))
 						.map(m => ({ role: m.role, content: m.content }));
-					fs.writeFileSync(
-						path.join(promptTestDir, testKey + ".json"),
-						JSON.stringify(userMessages, null, 2),
-						"utf-8"
-					);
+					await db.testPrompt.upsert({
+						where: { testname: testKey },
+						create: { testname: testKey, messagesJson: JSON.stringify(userMessages) },
+						update: { messagesJson: JSON.stringify(userMessages) },
+					});
 				}
 			}
 
@@ -573,28 +618,20 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 					})
 					: msg.content,
 			}));
-			try {
-				fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
-				const ts = new Date(sessionStart).toISOString().replace(/[:.]/g, "-").slice(0, 19);
-				fs.writeFileSync(path.join(CHAT_LOGS_DIR, `${ts}_${runId}.json`), JSON.stringify(log, null, 2), "utf-8");
-			} catch {}
+			await persistChatLog(log);
 
 			run.status = "done";
 			pushEvent({ type: "done", status: stopped ? "stopped" : "done", sessionId: runId });
 			for (const res of run.clients) res.end();
 			run.clients.clear();
 			setTimeout(() => chatRuns.delete(runId), 5 * 60 * 1000);
-		})().catch((err) => {
+		})().catch(async (err) => {
 			chatHistories.set(runId, history);
 			if (chatHistories.size > 50) chatHistories.delete([...chatHistories.keys()][0]);
 			log.endedAt = new Date().toISOString();
 			log.durationMs = Date.now() - sessionStart;
 			log.error = err.message;
-			try {
-				fs.mkdirSync(CHAT_LOGS_DIR, { recursive: true });
-				const ts = new Date(sessionStart).toISOString().replace(/[:.]/g, "-").slice(0, 19);
-				fs.writeFileSync(path.join(CHAT_LOGS_DIR, `${ts}_${runId}.json`), JSON.stringify(log, null, 2), "utf-8");
-			} catch {}
+			await persistChatLog(log);
 			run.status = "error";
 			pushEvent({ type: "done", status: "error", error: err.message, sessionId: runId });
 			for (const res of run.clients) res.end();
@@ -605,13 +642,14 @@ module.exports = function createAI({ E2E_DIR, TESTS_DIR, DATA_DIR, SPECS_DIR, PE
 	}
 
 	async function generateSpec(testname) {
-		const specFile = path.join(SPECS_DIR, testname + ".md");
 		const testFile = path.join(TESTS_DIR, testname + ".spec.ts");
-		const actionsFile = path.join(DATA_DIR, "actionTest", testname + ".json");
 
 		let testCode = "", actionsText = "";
 		try { testCode = fs.readFileSync(testFile, "utf-8"); } catch { return; }
-		try { actionsText = fs.readFileSync(actionsFile, "utf-8"); } catch {}
+		try {
+			const action = await db.testAction.findUnique({ where: { testname } });
+			if (action) actionsText = JSON.stringify({ actions: JSON.parse(action.actionsJson) });
+		} catch {}
 
 		const prompt = `À partir du code de test Playwright et de la liste d'actions ci-dessous, génère une spécification en français au format Gherkin (Given/When/Then). Utilise les mots-clés français : "Étant donné", "Quand", "Alors", "Et". Décris le scénario du point de vue de l'utilisateur, sans jargon technique, sans sélecteurs CSS, sans mentionner Playwright. Chaque ligne commence par un mot-clé. Sois concis (5 à 8 lignes maximum). Ne mets pas de bloc de code, juste le texte brut.
 
@@ -642,21 +680,23 @@ ${actionsText}
 				if (event.type === "delta" && event.text) spec += event.text;
 			});
 			if (!spec.trim()) throw new Error("Contenu vide reçu");
-			fs.mkdirSync(SPECS_DIR, { recursive: true });
-			fs.writeFileSync(specFile, spec, "utf-8");
+			await db.spec.upsert({
+				where: { testname },
+				create: { testname, content: spec },
+				update: { content: spec },
+			});
 			console.log(`[spec] Généré : ${testname} (${spec.length} chars)`);
 		} catch (e) {
 			console.error(`[spec] Erreur pour ${testname}:`, e.message || String(e));
-			try { fs.unlinkSync(specFile); } catch {}
 		}
 	}
 
-	function generateMissingSpecs() {
-		fs.mkdirSync(SPECS_DIR, { recursive: true });
+	async function generateMissingSpecs() {
 		if (!fs.existsSync(TESTS_DIR)) return;
 		for (const f of fs.readdirSync(TESTS_DIR).filter(f => f.endsWith(".spec.ts"))) {
 			const testname = f.replace(".spec.ts", "");
-			if (!fs.existsSync(path.join(SPECS_DIR, testname + ".md"))) {
+			const existing = await db.spec.findUnique({ where: { testname } });
+			if (!existing) {
 				generateSpec(testname).catch(() => {});
 			}
 		}

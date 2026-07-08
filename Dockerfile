@@ -7,6 +7,7 @@ RUN npm ci
 RUN npx playwright install chromium --with-deps
 
 COPY backend/package*.json ./backend/
+COPY backend/prisma ./backend/prisma/
 RUN npm --prefix backend ci
 
 COPY frontend/package*.json ./frontend/
@@ -18,8 +19,8 @@ RUN npm --prefix frontend run build
 
 COPY playwright.config.ts tsconfig.json ./
 
-RUN mkdir -p data/actionTest data/specs screenshots tests
+RUN mkdir -p data/actionTest data/versioned/tests data/test-results screenshots
 
 EXPOSE 3333
 
-CMD ["node", "backend/server.js"]
+CMD ["npm", "--prefix", "backend", "run", "start"]

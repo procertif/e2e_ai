@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "postinstall": "prisma generate",
+    "start": "node server.js",
+    "db:migrate": "DATABASE_URL=\"file:../../data/app.db\" prisma migrate dev"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3"
   }
 }

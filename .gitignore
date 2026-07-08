@@ -1,9 +1,7 @@
 screenshots/
 node_modules/
 .idea/
-/test-results/
 /data/
 .env
-tests/
 CLAUDE.md
 frontend/dist/

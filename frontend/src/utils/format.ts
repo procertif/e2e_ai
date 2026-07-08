@@ -45,6 +45,21 @@ export function filenameToFolder(filename: string) {
   return filename.replace(/^\d+-/, "").replace(/\.spec\.ts$/, "");
 }
 
+// Pulls the assertion/error block (message, diff, code frame, first stack
+// line) out of a raw Playwright --reporter=line log, dropping the noisy
+// "Error Context: test-results/.../error-context.md" tail and anything after.
+export function extractError(output: string): string | null {
+  const idx = output.indexOf("Error:");
+  if (idx === -1) return null;
+  const rest = output.slice(idx);
+  let end = rest.length;
+  for (const marker of ["\n    Error Context:", "\n\n\n"]) {
+    const i = rest.indexOf(marker);
+    if (i !== -1) end = Math.min(end, i);
+  }
+  return rest.slice(0, end).trim();
+}
+
 export function escHtml(s: unknown) {
   return String(s)
     .replace(/&/g, "&amp;")

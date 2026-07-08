@@ -169,9 +169,14 @@ export default function ScreenshotsPage() {
               <p>{t("loading")}</p>
             </div>
           )}
-          {!error && groups !== null && filtered.length === 0 && (
+          {!error && groups !== null && groups.length === 0 && (
+            <div className="empty-state">
+              <p>{t("screenshots_empty_message")}</p>
+            </div>
+          )}
+          {!error && groups !== null && groups.length > 0 && filtered.length === 0 && (
             <div className="no-results">
-              {t("search_test_placeholder").replace("Rechercher un test…", "")}« {query} ».
+              {t("screenshots_no_match_prefix")} « {query} ».
             </div>
           )}
           {filtered.map((g) => {

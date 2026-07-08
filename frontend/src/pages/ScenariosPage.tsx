@@ -182,7 +182,7 @@ export default function ScenariosPage() {
     setDrawerInput("");
     setDrawerStreaming(false);
     setDrawerOpen(true);
-    const initMsg = `Lis le fichier \`/home/procertif/e2e_ai/tests/${scenario.file}\` et aide-moi à modifier l'étape ${action.index} (ligne ${action.line}) : **${action.description}**.`;
+    const initMsg = `Lis le fichier \`/home/procertif/e2e_ai/data/tests/${scenario.file}\` et aide-moi à modifier l'étape ${action.index} (ligne ${action.line}) : **${action.description}**.`;
     sendDrawerMessage(initMsg);
   };
 

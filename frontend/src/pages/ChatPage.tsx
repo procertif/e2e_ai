@@ -1,75 +1,16 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { marked } from "marked";
-import { apiFetch, apiStreamUrl } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { shortPath, toolPillClass, type ToolInput } from "../utils/toolPills";
+import { environmentColorHex } from "../utils/environmentColors";
+import { useChat, type AssistantItem, type PendingItem, type ToolCall } from "../chat/ChatContext";
+import { ToolDiffView } from "../chat/ToolDiff";
 import "../styles/chat.css";
+import "../styles/environments.css";
+
+const DIFF_CAPABLE = new Set(["write", "edit"]);
 
 marked.setOptions({ breaks: true, gfm: true });
-
-const CHAT_STORAGE_KEY = "procertif_chat";
-const INSTRUCTIONS_STORAGE_KEY = "procertif_instructions";
-
-const DEFAULT_INSTRUCTIONS = `Tu dois TOUJOURS regrouper les appels d'outils indépendants dans le même bloc
-pour les exécuter en parallèle. Ne jamais appeler les outils séquentiellement
-si leurs entrées ne dépendent pas les unes des autres.
-
-Les tests sont toujours en playwright natif et tu dois toujours chercher dans le code et t'inspirer des tests déjà existant.
-
-Toujours prendre un screenshot entre chaque action dans les tests.
-
-Dans les fichiers de test Playwright, ajoute un commentaire structuré avant chaque action utilisateur (navigation, clic, saisie, attente) au format :
-// ACTION: <description courte en français>
-Ne commente pas les screenshots, les déclarations de variables, la configuration ni les utilitaires (mkdirSync, setTimeout…).
-Ce balisage permet de générer un fichier JSON listant les étapes du test dans l'ordre pour pouvoir les modifier facilement.
-Tu dois toujours générer ce json quand tu génères un test. Le json doit être dans /app/data/actionTest.
-Tu dois également générer un fichier .md dans /app/data/specs pour stocker le scénario au format naturel.
-Tu dois aussi générer un autre json dans /app/data/promptTest qui sauvegarde la conversation qu'il y a eu pour écrire le test.
-Pour ces 3 fichiers, tu dois t'inspirer du format des fichiers déjà existant.
-`;
-
-interface PendingImage {
-  data: string;
-  media_type: string;
-  name: string;
-}
-
-interface ToolCall {
-  name: string;
-  input: ToolInput;
-}
-
-type AssistantBlock = { type: "tool"; name: string; input: ToolInput } | { type: "text"; text: string };
-
-interface UserItem {
-  kind: "user";
-  text: string;
-  images: { data: string; media_type: string }[];
-}
-
-interface AssistantItem {
-  kind: "assistant";
-  blocks: AssistantBlock[];
-  liveText: string;
-  tools: ToolCall[];
-  done: boolean;
-}
-
-interface PendingItem {
-  kind: "pending";
-  testname: string;
-  status: "open" | "confirmed" | "discarded";
-  output?: string;
-  ran: boolean;
-}
-
-type TimelineItem = UserItem | AssistantItem | PendingItem;
-
-interface SaveModalState {
-  filename: string;
-  error: string | null;
-  saving: boolean;
-}
 
 function formatToolLabel(name: string, input: ToolInput) {
   const n = name.toLowerCase();
@@ -84,43 +25,81 @@ function formatToolLabel(name: string, input: ToolInput) {
   return name;
 }
 
-function ToolPill({ name, input }: ToolCall) {
+function ToolPill({ name, input, expandable, expanded, onClick }: ToolCall & { expandable: boolean; expanded: boolean; onClick?: () => void }) {
   return (
-    <span className={`tool-pill tool-pill--${toolPillClass(name)}`} title={JSON.stringify(input, null, 2)}>
+    <span
+      className={`tool-pill tool-pill--${toolPillClass(name)}${expandable ? " tool-pill--expandable" : ""}${expanded ? " tool-pill--open" : ""}`}
+      title={JSON.stringify(input, null, 2)}
+      onClick={onClick}
+    >
       {formatToolLabel(name, input)}
+      {expandable && <span className="tool-pill-chevron">{expanded ? "▾" : "▸"}</span>}
     </span>
   );
 }
 
 // Renders the committed blocks of an assistant message, plus trailing live
-// (not-yet-committed) text with a typing cursor while streaming.
-function AssistantContent({ item }: { item: AssistantItem }) {
+// (not-yet-committed) text with a typing cursor while streaming. Write/Edit
+// tool calls are shown expanded with a live diff by default (collapsedTools
+// tracks the ones the user manually folded), so edits are visible as Claude
+// makes them rather than only as an opaque pill.
+function AssistantContent({
+  item,
+  msgIdx,
+  collapsedTools,
+  onToggleTool,
+}: {
+  item: AssistantItem;
+  msgIdx: number;
+  collapsedTools: Set<string>;
+  onToggleTool: (key: string) => void;
+}) {
   const blocks = item.blocks || [];
-  let pillGroup: { name: string; input: ToolInput }[] = [];
+  let pillGroup: { name: string; input: ToolInput; bIdx: number }[] = [];
   const rendered: React.ReactNode[] = [];
   let key = 0;
   const flushPills = () => {
     if (pillGroup.length > 0) {
+      const group = pillGroup;
       rendered.push(
         <div className="tool-pills" key={"pills-" + key++}>
-          {pillGroup.map((b, i) => (
-            <ToolPill name={b.name} input={b.input} key={i} />
-          ))}
+          {group.map((b, i) => {
+            const expandable = DIFF_CAPABLE.has(b.name.toLowerCase());
+            const diffKey = `${msgIdx}-${b.bIdx}`;
+            const isOpen = expandable && !collapsedTools.has(diffKey);
+            return (
+              <ToolPill
+                name={b.name}
+                input={b.input}
+                key={i}
+                expandable={expandable}
+                expanded={isOpen}
+                onClick={expandable ? () => onToggleTool(diffKey) : undefined}
+              />
+            );
+          })}
         </div>,
       );
+      for (const b of group) {
+        const expandable = DIFF_CAPABLE.has(b.name.toLowerCase());
+        const diffKey = `${msgIdx}-${b.bIdx}`;
+        if (expandable && !collapsedTools.has(diffKey)) {
+          rendered.push(<ToolDiffView name={b.name} input={b.input} key={"diff-" + diffKey} />);
+        }
+      }
       pillGroup = [];
     }
   };
-  for (const b of blocks) {
+  blocks.forEach((b, bIdx) => {
     if (b.type === "tool") {
-      pillGroup.push(b);
+      pillGroup.push({ name: b.name, input: b.input, bIdx });
     } else {
       flushPills();
       if (b.text) {
         rendered.push(<div className="msg-content" key={"text-" + key++} dangerouslySetInnerHTML={{ __html: marked.parse(b.text) as string }} />);
       }
     }
-  }
+  });
   flushPills();
 
   const showThinking = blocks.length === 0 && !item.liveText && !item.done;
@@ -198,307 +177,63 @@ function PendingCard({
 }
 
 export default function ChatPage() {
-  const { t, ready } = useI18n();
-  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
-  const [instructions, setInstructions] = useState("");
-  const [instructionsOpen, setInstructionsOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [saveModal, setSaveModal] = useState<SaveModalState | null>(null);
-
-  const currentRunId = useRef<string | null>(null);
-  const messagesRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    if (!ready || initialized.current) return;
-    initialized.current = true;
-    try {
-      const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "null");
-      if (saved?.messages?.length) {
-        setSessionId(saved.sessionId || null);
-        setTimeline(
-          saved.messages.map(
-            (msg: any): TimelineItem =>
-              msg.role === "user"
-                ? { kind: "user", text: msg.content, images: msg.images || [] }
-                : {
-                    kind: "assistant",
-                    blocks: msg.blocks?.length ? msg.blocks : [...(msg.tools || []).map((tl: ToolCall) => ({ type: "tool", ...tl })), ...(msg.content ? [{ type: "text", text: msg.content }] : [])],
-                    liveText: "",
-                    tools: msg.tools || [],
-                    done: true,
-                  },
-          ),
-        );
-      }
-    } catch {}
-    const savedInstr = localStorage.getItem(INSTRUCTIONS_STORAGE_KEY);
-    setInstructions(savedInstr !== null ? savedInstr : DEFAULT_INSTRUCTIONS);
-    inputRef.current?.focus();
-  }, [ready]);
-
-  useEffect(() => {
-    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [timeline]);
-
-  const persistChat = (nextTimeline: TimelineItem[], nextSessionId: string | null) => {
-    const messages = nextTimeline
-      .filter((item): item is UserItem | AssistantItem => item.kind !== "pending")
-      .map((item) =>
-        item.kind === "user"
-          ? { role: "user", content: item.text, images: item.images.length > 0 ? item.images : undefined }
-          : { role: "assistant", content: (item.blocks || []).filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join(""), tools: item.tools, blocks: item.blocks },
-      );
-    try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ sessionId: nextSessionId, messages }));
-    } catch {}
-  };
-
-  const handleInstructionsChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setInstructions(e.target.value);
-    localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, e.target.value);
-  };
-
-  const readImageFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target!.result as string;
-      const [prefix, data] = dataUrl.split(",");
-      const media_type = prefix.match(/:(.*?);/)![1];
-      setPendingImages((prev) => [...prev, { data, media_type, name: file.name }]);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const addFiles = (fileList: FileList | null) => {
-    if (!fileList) return;
-    for (const file of fileList) {
-      if (file.type.startsWith("image/")) readImageFile(file);
-    }
-  };
-
-  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
-  };
-
-  const handleInputKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (!isStreaming && (inputValue.trim() || pendingImages.length > 0)) sendMessage();
-    }
-  };
-
-  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const imageItems = [...items].filter((i) => i.type.startsWith("image/"));
-    if (imageItems.length === 0) return;
-    e.preventDefault();
-    for (const item of imageItems) {
-      const file = item.getAsFile();
-      if (file) readImageFile(file);
-    }
-  };
-
-  const resetChat = () => {
-    setSessionId(null);
-    setTimeline([]);
-    setPendingImages([]);
-    localStorage.removeItem(CHAT_STORAGE_KEY);
-  };
-
-  const sendMessage = async () => {
-    const text = inputValue.trim();
-    if ((!text && pendingImages.length === 0) || isStreaming) return;
-
-    const imagesToSend = pendingImages.map(({ data, media_type }) => ({ data, media_type }));
-    setPendingImages([]);
-    setIsStreaming(true);
-    setInputValue("");
-    if (inputRef.current) inputRef.current.style.height = "auto";
-
-    // Timeline is append-only and this handler can't overlap with another
-    // send (guarded by isStreaming), so the new assistant item's index is
-    // deterministic from the current render's `timeline` length.
-    const assistantIndex = timeline.length + 1;
-    setTimeline((prev) => [
-      ...prev,
-      { kind: "user", text, images: imagesToSend },
-      { kind: "assistant", blocks: [], liveText: "", tools: [], done: false },
-    ]);
-
-    const updateAssistant = (updater: (item: AssistantItem) => AssistantItem) => {
-      setTimeline((prev) => {
-        const next = [...prev];
-        next[assistantIndex] = updater(next[assistantIndex] as AssistantItem);
-        return next;
-      });
-    };
-
-    try {
-      const res = await apiFetch("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({ message: text, images: imagesToSend.length > 0 ? imagesToSend : null, sessionId, instructions: instructions.trim() || null }),
-      });
-      if (!res.ok) throw new Error(t("save_error_server") + " " + res.status);
-      const { runId } = await res.json();
-      currentRunId.current = runId;
-
-      const es = new EventSource(apiStreamUrl(`/api/chat-stream/${runId}`));
-
-      es.onmessage = (evt) => {
-        let event;
-        try {
-          event = JSON.parse(evt.data);
-        } catch {
-          return;
-        }
-
-        if (event.type === "delta") {
-          updateAssistant((a) => ({ ...a, liveText: a.liveText + event.text }));
-          return;
-        }
-
-        if (event.type === "tool_start") {
-          updateAssistant((a) => {
-            const blocks: AssistantBlock[] = [...a.blocks];
-            if (a.liveText) blocks.push({ type: "text", text: a.liveText });
-            blocks.push({ type: "tool", name: event.name, input: event.input || null });
-            return { ...a, blocks, liveText: "", tools: [...a.tools, { name: event.name, input: event.input || null }] };
-          });
-          return;
-        }
-
-        if (event.type === "tool_result") {
-          return;
-        }
-
-        if (event.type === "pending") {
-          setTimeline((prev) => [...prev, { kind: "pending", testname: event.testname, status: "open", output: undefined, ran: false }]);
-          return;
-        }
-
-        if (event.type === "done") {
-          if (event.sessionId) setSessionId(event.sessionId);
-          const isError = event.status === "error";
-          updateAssistant((a) => {
-            let blocks = [...a.blocks];
-            let finalSegment = a.liveText;
-            if (isError && !finalSegment) finalSegment = `*(Erreur : ${event.error || "inconnue"})*`;
-            if (finalSegment) {
-              blocks.push({ type: "text", text: finalSegment });
-            } else if (blocks.length === 0) {
-              blocks.push({ type: "text", text: "*(Aucune réponse)*" });
-            }
-            return { ...a, blocks, liveText: "", done: true };
-          });
-          es.close();
-          setIsStreaming(false);
-          setTimeline((prev) => {
-            persistChat(prev, event.sessionId || sessionId);
-            return prev;
-          });
-        }
-      };
-
-      es.onerror = () => {
-        updateAssistant((a) => {
-          if (a.liveText) return { ...a, blocks: [...a.blocks, { type: "text", text: a.liveText }], liveText: "", done: true };
-          if (a.blocks.length === 0) return { ...a, blocks: [{ type: "text", text: "*(Erreur de connexion)*" }], liveText: "", done: true };
-          return { ...a, done: true };
-        });
-        es.close();
-        setIsStreaming(false);
-      };
-    } catch (err) {
-      updateAssistant((a) => ({ ...a, blocks: [{ type: "text", text: `*(Erreur : ${err instanceof Error ? err.message : String(err)})*` }], liveText: "", done: true }));
-      setIsStreaming(false);
-    }
-  };
-
-  const stopStreaming = () => {
-    if (currentRunId.current) {
-      apiFetch("/api/chat-stop/" + currentRunId.current, { method: "POST" }).catch(() => {});
-    }
-  };
-
-  // ── Pending card actions ──
-
-  const updatePending = (idx: number, updater: (item: PendingItem) => PendingItem) => {
-    setTimeline((prev) => {
-      const next = [...prev];
-      next[idx] = updater(next[idx] as PendingItem);
+  const { t } = useI18n();
+  const [collapsedTools, setCollapsedTools] = useState<Set<string>>(new Set());
+  const toggleTool = (key: string) => {
+    setCollapsedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
+  const {
+    timeline,
+    isStreaming,
+    inputValue,
+    pendingImages,
+    setPendingImages,
+    instructions,
+    instructionsOpen,
+    setInstructionsOpen,
+    dragOver,
+    setDragOver,
+    saveModal,
+    setSaveModal,
+    messagesRef,
+    inputRef,
+    imageInputRef,
+    handleInstructionsChange,
+    addFiles,
+    handleInputChange,
+    handleInputKeyDown,
+    handlePaste,
+    resetChat,
+    sendMessage,
+    stopStreaming,
+    runPending,
+    confirmPending,
+    discardPending,
+    openSaveModal,
+    closeSaveModal,
+    doSave,
+    hasContent,
+    sendDisabled,
+    environments,
+    selectedId,
+    setSelectedId,
+    selectedEnvironment,
+  } = useChat();
 
-  const runPending = (idx: number, testname: string) => {
-    updatePending(idx, (item) => ({ ...item, output: "" }));
-    (async () => {
-      const res = await apiFetch(`/api/pending/${encodeURIComponent(testname)}/run`, { method: "POST" });
-      if (!res.ok) {
-        updatePending(idx, (item) => ({ ...item, output: t("run_error") }));
-        return;
-      }
-      const { runId } = await res.json();
-      const es = new EventSource(apiStreamUrl(`/api/stream/${runId}`));
-      es.onmessage = (e) => {
-        const ev = JSON.parse(e.data);
-        if (ev.text) updatePending(idx, (item) => ({ ...item, output: (item.output || "") + ev.text }));
-        if (ev.done) {
-          es.close();
-          updatePending(idx, (item) => ({ ...item, ran: true }));
-        }
-      };
-    })();
-  };
+  // Autofocus only when this route is actually visited — the chat state
+  // itself lives in ChatProvider and survives switching to other tabs.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [inputRef]);
 
-  const confirmPending = async (idx: number, testname: string) => {
-    await apiFetch(`/api/pending/${encodeURIComponent(testname)}/confirm`, { method: "POST" });
-    updatePending(idx, (item) => ({ ...item, status: "confirmed" }));
-  };
-
-  const discardPending = async (idx: number, testname: string) => {
-    await apiFetch(`/api/pending/${encodeURIComponent(testname)}/discard`, { method: "POST" });
-    updatePending(idx, (item) => ({ ...item, status: "discarded" }));
-  };
-
-  // ── Save modal ──
-
-  const openSaveModal = () => setSaveModal({ filename: "", error: null, saving: false });
-  const closeSaveModal = () => setSaveModal(null);
-  const doSave = async () => {
-    if (!saveModal) return;
-    const name = saveModal.filename.trim();
-    if (!name) return;
-    const filename = name.replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
-    setSaveModal((prev) => (prev ? { ...prev, saving: true, error: null } : prev));
-    const messages = timeline
-      .filter((item): item is UserItem | AssistantItem => item.kind !== "pending")
-      .map((item) =>
-        item.kind === "user"
-          ? { role: "user", content: item.text, images: item.images.length > 0 ? item.images : undefined }
-          : { role: "assistant", content: (item.blocks || []).filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join(""), tools: item.tools, blocks: item.blocks },
-      );
-    try {
-      const res = await apiFetch("/api/chat-save", { method: "POST", body: JSON.stringify({ filename, messages }) });
-      if (!res.ok) throw new Error(t("save_error_server") + " " + res.status);
-      closeSaveModal();
-    } catch (err) {
-      setSaveModal((prev) => (prev ? { ...prev, saving: false, error: err instanceof Error ? err.message : String(err) } : prev));
-    }
-  };
-
-  const hasContent = timeline.length > 0;
-  const sendDisabled = isStreaming || (!inputValue.trim() && pendingImages.length === 0);
+  useEffect(() => {
+    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [timeline, messagesRef]);
 
   return (
     <div className="chat-layout">
@@ -508,6 +243,28 @@ export default function ChatPage() {
           <span className="chat-scope">{t("chat_scope")}</span>
         </div>
         <div className="chat-header-actions">
+          <div className="target-environment-bar" style={{ marginBottom: 0, flexDirection: "column", alignItems: "flex-start", gap: "0.2rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span className="environment-color-dot" style={{ background: selectedEnvironment ? environmentColorHex(selectedEnvironment.color) : "#ced4da" }} />
+              <label className="target-environment-label" htmlFor="chat-target-environment-select">
+                {t("target_environment_label")}
+              </label>
+              <select
+                id="chat-target-environment-select"
+                className={"form-select form-select-sm target-environment-select" + (selectedId == null ? " is-required" : "")}
+                value={selectedId ?? ""}
+                onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">{t("target_environment_none_option")}</option>
+                {environments.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedId == null && <span className="target-environment-hint">{t("target_environment_required_hint")}</span>}
+          </div>
           <button className="btn btn-sm btn-outline-secondary" disabled={!hasContent} onClick={openSaveModal}>
             {t("btn_save_chat")}
           </button>
@@ -550,7 +307,7 @@ export default function ChatPage() {
             return (
               <div className="chat-message chat-message--assistant" key={idx}>
                 <div className="msg-bubble msg-bubble--assistant">
-                  <AssistantContent item={item} />
+                  <AssistantContent item={item} msgIdx={idx} collapsedTools={collapsedTools} onToggleTool={toggleTool} />
                 </div>
               </div>
             );
