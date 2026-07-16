@@ -1,6 +1,9 @@
 // Tool schemas sent to the Anthropic API — execution lives in the sibling
-// files, dispatched by tools/index.js.
-module.exports = [
+// files, dispatched by tools/index.js. CLASSIC_TOOLS is the default set
+// (classic chat + corrections); SCENARIO_TOOLS is the restricted set for
+// scenario conversations (read the tested app's source, write the scenario's
+// expected-result spec — no test files, no test runs).
+const CLASSIC_TOOLS = [
 	{
 		name: "WriteTestFile",
 		description:
@@ -76,3 +79,23 @@ module.exports = [
 		},
 	},
 ];
+
+const WRITE_SCENARIO_SPEC = {
+	name: "WriteScenarioSpec",
+	description:
+		"Replace the expected-result specification of the scenario this conversation is scoped to. The content is a short French Gherkin document: every non-empty line starts with \"Étant donné\", \"Quand\", \"Alors\", \"Et\" or \"Mais\"; user point of view only (no selectors, no technical terms, no physical UI interactions); 5 to 12 lines. This is the only way the scenario shown in the app gets updated.",
+	input_schema: {
+		type: "object",
+		properties: {
+			content: { type: "string", description: "The full new specification (replaces the previous one entirely)" },
+		},
+		required: ["content"],
+	},
+};
+
+const byName = (name) => CLASSIC_TOOLS.find((t) => t.name === name);
+const SCENARIO_TOOLS = [WRITE_SCENARIO_SPEC, byName("ReadDataFile"), byName("FindSelector"), byName("WebFetch")];
+
+module.exports = CLASSIC_TOOLS;
+module.exports.CLASSIC_TOOLS = CLASSIC_TOOLS;
+module.exports.SCENARIO_TOOLS = SCENARIO_TOOLS;

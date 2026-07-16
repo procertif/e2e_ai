@@ -73,6 +73,11 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 				existing.environmentId = campaign.environmentId;
 				existing.environmentName = campaign.environmentName;
 				existing.consoleOutput = t.output || "";
+				// The chat (if any) was about the PREVIOUS failure — its turn-1
+				// snapshot of code/console no longer describes this one. Flag it so
+				// the next correction turn re-injects the current context instead
+				// of letting the AI reason on the old failure.
+				if ((existing.chatMessages || []).length > 0) existing.contextStale = true;
 				persist(existing);
 				continue;
 			}
@@ -116,6 +121,10 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		if (entry.draftContent !== content) {
 			entry.lastRunStatus = null;
 			entry.lastRunWasEdited = false;
+			// An AI edit is already visible in the conversation (its own tool
+			// call); a user edit happens outside it, so the AI's view of the
+			// draft is now wrong — flag for re-injection on the next turn.
+			if (source === "user" && (entry.chatMessages || []).length > 0) entry.contextStale = true;
 		}
 		entry.draftContent = content;
 		if (source === "ai") entry.aiEdited = true;
@@ -149,6 +158,13 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		persist(entry);
 	}
 
+	function clearContextStale(filename) {
+		const entry = pending.get(filename);
+		if (!entry || !entry.contextStale) return;
+		entry.contextStale = false;
+		persist(entry);
+	}
+
 	// Writes the draft to the real spec file and drops it out of the pending
 	// set — the only place this module touches TESTS_DIR.
 	function validate(filename) {
@@ -168,5 +184,5 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		return existed;
 	}
 
-	return { list, get, createForCampaign, updateDraft, validate, remove, getChatMessages, setChatMessages, setLastRunStatus, isSafeTestFilename };
+	return { list, get, createForCampaign, updateDraft, validate, remove, getChatMessages, setChatMessages, clearContextStale, setLastRunStatus, isSafeTestFilename };
 };

@@ -5,7 +5,7 @@
 // status lives in the database, not in whichever browser tab/component
 // happened to start it — switching app tabs, browser tabs, or reloading
 // entirely no longer loses track of what the AI is doing.
-module.exports = function createAiQueueService({ db, ai, corrections }) {
+module.exports = function createAiQueueService({ db, ai, corrections, scenariosRepo }) {
 	let active = null; // { id, kind, targetKey, runId }
 	let watchTimer = null;
 	let paused = false;
@@ -22,6 +22,10 @@ module.exports = function createAiQueueService({ db, ai, corrections }) {
 		if (row.kind === "correction") {
 			if (!corrections.get(row.targetKey)) throw new Error("Test no longer in correction.");
 			return ai.startCorrectionChatRun(row.targetKey, row.message, parseImages(row), row.environmentId ?? null);
+		}
+		if (row.kind === "scenario") {
+			if (!scenariosRepo?.get(row.targetKey)) throw new Error("Unknown scenario.");
+			return ai.startScenarioChatRun(row.targetKey, row.message, parseImages(row), row.environmentId ?? null);
 		}
 		const seedHistory = row.seedHistoryJson ? JSON.parse(row.seedHistoryJson) : null;
 		return ai.startChatRun(row.message, parseImages(row), row.targetKey || null, row.instructions || null, row.environmentId ?? null, seedHistory);

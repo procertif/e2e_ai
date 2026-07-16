@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faMagnifyingGlass, faFolder, faList } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { GROUP_COLORS, fuzzyMatch, formatDuration } from "../utils/format";
@@ -164,9 +166,7 @@ export default function TestsPage() {
     return (
       <div className="app-content">
         <div className="groups-tab-empty no-environment-empty">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16" style={{ opacity: 0.25 }}>
-            <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z" />
-          </svg>
+          <FontAwesomeIcon icon={faFolder} style={{ fontSize: 28, opacity: 0.25 }} />
           <p>{t("no_environment_title")}</p>
           <p>{t("no_environment_message")}</p>
           <a href="/environments">{t("no_environment_cta")}</a>
@@ -221,9 +221,7 @@ export default function TestsPage() {
               </button>
             </div>
             <div className="panel-search-wrap">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11" />
-              </svg>
+              <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 13 }} />
               <input
                 type="text"
                 className="panel-search-input"
@@ -258,9 +256,7 @@ export default function TestsPage() {
               </div>
             ) : allGroups.length === 0 ? (
               <div className="groups-tab-empty">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16" style={{ opacity: 0.25 }}>
-                  <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z" />
-                </svg>
+                <FontAwesomeIcon icon={faFolder} style={{ fontSize: 28, opacity: 0.25 }} />
                 <p>{t("group_no_groups_created")}</p>
                 <a href="/groups">{t("group_manage_link")}</a>
               </div>
@@ -340,9 +336,7 @@ export default function TestsPage() {
           <div className="panel-body" ref={queueListRef} onDragOver={onQueueDragOver}>
             {queue.length === 0 ? (
               <div className="queue-empty">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style={{ opacity: 0.25 }}>
-                  <path d="M2.5 3a.5.5 0 0 0 0 1h11a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm0 3a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1zm8-6h1a1 1 0 0 1 1 1v1h1a.5.5 0 0 1 .354.854l-2 2a.5.5 0 0 1-.708 0l-2-2A.5.5 0 0 1 9.5 7h1V6a1 1 0 0 1 1-1" />
-                </svg>
+                <FontAwesomeIcon icon={faList} style={{ fontSize: 32, opacity: 0.25 }} />
                 <p>{t("queue_empty_message")}</p>
               </div>
             ) : (

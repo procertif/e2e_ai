@@ -3,9 +3,18 @@ const { readJson, writeJson } = require("../../core/jsonFiles");
 const {
 	DEFAULT_CLASSIC_INSTRUCTIONS,
 	DEFAULT_CORRECTION_INSTRUCTIONS,
+	DEFAULT_SCENARIO_INSTRUCTIONS,
 	classicSystemBlocks,
 	correctionSystemBlocks,
+	scenarioSystemBlocks,
 } = require("../../ai/prompts");
+
+const DEFAULTS = {
+	classic: DEFAULT_CLASSIC_INSTRUCTIONS,
+	correction: DEFAULT_CORRECTION_INSTRUCTIONS,
+	scenario: DEFAULT_SCENARIO_INSTRUCTIONS,
+};
+const KEYS = Object.keys(DEFAULTS);
 
 // User-editable system prompts (Configuration page). Overrides live in
 // data/config/prompts.json — outside data/versioned/ on purpose: prompt
@@ -16,41 +25,40 @@ module.exports = function createPromptsConfig({ CONFIG_DIR }) {
 
 	function readOverrides() {
 		const data = readJson(FILE);
-		return {
-			classic: typeof data?.classic === "string" && data.classic.trim() ? data.classic : null,
-			correction: typeof data?.correction === "string" && data.correction.trim() ? data.correction : null,
-		};
+		const overrides = {};
+		for (const key of KEYS) {
+			overrides[key] = typeof data?.[key] === "string" && data[key].trim() ? data[key] : null;
+		}
+		return overrides;
 	}
 
 	function getAll() {
 		const overrides = readOverrides();
-		return {
-			classic: { value: overrides.classic, default: DEFAULT_CLASSIC_INSTRUCTIONS },
-			correction: { value: overrides.correction, default: DEFAULT_CORRECTION_INSTRUCTIONS },
-		};
+		const all = {};
+		for (const key of KEYS) all[key] = { value: overrides[key], default: DEFAULTS[key] };
+		return all;
 	}
 
 	// Saving text identical to the default (or blank) stores null, so the
 	// prompt keeps tracking future default improvements instead of freezing
 	// today's wording as a stale override.
-	function set({ classic, correction }) {
-		const normalize = (value, def) => {
-			if (typeof value !== "string") return null;
-			const trimmed = value.trim();
-			return trimmed && trimmed !== def.trim() ? value : null;
-		};
-		const overrides = {
-			classic: normalize(classic, DEFAULT_CLASSIC_INSTRUCTIONS),
-			correction: normalize(correction, DEFAULT_CORRECTION_INSTRUCTIONS),
-		};
+	function set(values) {
+		const overrides = {};
+		for (const key of KEYS) {
+			const value = values?.[key];
+			overrides[key] =
+				typeof value === "string" && value.trim() && value.trim() !== DEFAULTS[key].trim() ? value : null;
+		}
 		writeJson(FILE, overrides);
 		return getAll();
 	}
 
 	return {
+		KEYS,
 		getAll,
 		set,
 		classicBlocks: () => classicSystemBlocks(readOverrides().classic),
 		correctionBlocks: (filename) => correctionSystemBlocks(filename, readOverrides().correction),
+		scenarioBlocks: (scenarioName) => scenarioSystemBlocks(scenarioName, readOverrides().scenario),
 	};
 };

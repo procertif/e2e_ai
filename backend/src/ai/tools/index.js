@@ -28,6 +28,7 @@ function createToolExecutor({ paths, testRunner, testedRepo }) {
 		RunTest: require("./runTest")(shared),
 		WebFetch: require("./webFetch")(shared),
 		FindSelector: require("./findSelector")(shared),
+		WriteScenarioSpec: require("./writeScenarioSpec")(shared),
 	};
 
 	return async function executeTool(name, input, ctx) {

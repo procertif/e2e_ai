@@ -26,7 +26,7 @@ export function toolPillClass(name: string) {
   const n = name.toLowerCase();
   if (n === "readdatafile") return "read";
   if (n === "webfetch") return "web";
-  if (n === "writetestfile") return "write";
+  if (n === "writetestfile" || n === "writescenariospec") return "write";
   if (n === "runtest") return "bash";
   return "search";
 }

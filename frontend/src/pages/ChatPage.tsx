@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { marked } from "marked";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCommentDots, faChevronDown, faImage, faStop, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
 import { useI18n } from "../i18n/I18nContext";
 import { toolPillClass, type ToolInput } from "../utils/toolPills";
 import { toolLabel, readFileLineInfo, findSelectorMatches, type EntityTitles } from "../utils/toolNarration";
@@ -10,6 +12,7 @@ import { RepoUpdateBanner, RepoUpdateIcon } from "../environment/RepoUpdateBanne
 import { AiQueuePausedBanner } from "../ai/AiQueuePausedBanner";
 import { useChat, type AssistantItem, type PendingItem } from "../chat/ChatContext";
 import { ToolDiffView } from "../chat/ToolDiff";
+import { ToolConsole } from "../chat/ToolConsole";
 import "../styles/chat.css";
 import "../styles/environments.css";
 
@@ -102,7 +105,7 @@ function AssistantContent({
             onClick={expandable ? () => onToggleTool(diffKey) : undefined}
           />
           {expandable && isOpen && <ToolDiffView name={b.name} input={b.input} />}
-          {n === "runtest" && b.result && <pre className="tool-console">{b.result}</pre>}
+          {n === "runtest" && b.result && <ToolConsole text={b.result} />}
           {matches.length > 0 && (
             <div className="tool-matches">
               {matches.map((m, i) => (
@@ -331,9 +334,7 @@ export default function ChatPage() {
         {!hasContent && (
           <div className="chat-welcome">
             <div className="chat-welcome-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="#6366f1" viewBox="0 0 16 16">
-                <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.088-.243 4.4 4.4 0 0 1-1.716.83" />
-              </svg>
+              <FontAwesomeIcon icon={faCommentDots} style={{ fontSize: 26, color: "#6366f1" }} />
             </div>
             <p>{t("chat_welcome_message")}</p>
           </div>
@@ -387,16 +388,7 @@ export default function ChatPage() {
 
       <div className="chat-instructions-bar">
         <button className="instructions-toggle" type="button" onClick={() => setInstructionsOpen((v) => !v)}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            fill="currentColor"
-            viewBox="0 0 16 16"
-            style={{ transform: instructionsOpen ? "rotate(180deg)" : "" }}
-          >
-            <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z" />
-          </svg>
+          <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 12, transform: instructionsOpen ? "rotate(180deg)" : "" }} />
           <span>{t("instructions_toggle_label")}</span>
           {instructions.trim() && <span className="instructions-badge">{t("instructions_badge_active")}</span>}
         </button>
@@ -461,10 +453,7 @@ export default function ChatPage() {
           }}
         >
           <button className="chat-attach-btn" title={t("btn_attach_title")} onClick={() => imageInputRef.current?.click()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3" />
-              <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z" />
-            </svg>
+            <FontAwesomeIcon icon={faImage} style={{ fontSize: 16 }} />
           </button>
           <textarea
             ref={inputRef}
@@ -478,15 +467,11 @@ export default function ChatPage() {
           />
           {isStreaming ? (
             <button className="chat-send-btn chat-stop-btn" title={t("btn_stop_title")} onClick={stopStreaming}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5" />
-              </svg>
+              <FontAwesomeIcon icon={faStop} style={{ fontSize: 14 }} />
             </button>
           ) : (
             <button className="chat-send-btn" disabled={sendDisabled} title={t("btn_send_title")} onClick={sendMessage}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471z" />
-              </svg>
+              <FontAwesomeIcon icon={faPaperPlane} style={{ fontSize: 16 }} />
             </button>
           )}
         </div>

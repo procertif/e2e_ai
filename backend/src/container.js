@@ -44,7 +44,7 @@ function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}
 		promptsConfig,
 	});
 
-	const aiQueue = require("./modules/aiQueue/aiQueue.service")({ db, ai, corrections });
+	const aiQueue = require("./modules/aiQueue/aiQueue.service")({ db, ai, corrections, scenariosRepo });
 
 	return {
 		paths,

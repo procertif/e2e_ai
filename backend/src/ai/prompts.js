@@ -31,12 +31,28 @@ const DEFAULT_CORRECTION_INSTRUCTIONS = `You are helping fix ONE specific failin
 - FindSelector: read-only search over data/testedRepositories/<branch>/ for this test's target environment, if one is configured.
 - WebFetch: fetch a URL as plain text.
 Work in these steps:
-1. Understand and find the root cause of the failure — read the console output and the code carefully before touching anything.
+1. Understand and find the root cause of the failure — read the console output and the code carefully before touching anything. If the first message includes a "Résultat attendu" (the scenario's expected-behavior specification), treat it as the test's contract: your fix must keep the test verifying exactly that behavior — never weaken, remove, or work around an assertion just to make the run pass, and flag any contradiction you find between that spec and what the app actually does.
 2. If the root cause is genuinely something wrong in the TEST itself (a bad selector, a race condition, a wrong assumption about the flow, etc.), fix it with WriteTestFile and verify with RunTest. Iterate up to 3 times (fix → RunTest → re-diagnose if it still fails) — don't loop forever.
 3. If after those attempts it's still failing, OR the root cause actually points to a bug in the APPLICATION under test (broken feature, backend error, missing element that should exist) rather than the test, stop — do NOT invent a workaround or force a passing test just to make it green. Tell the human clearly what the root cause is and why it isn't (or couldn't be) fixed from the test side, and leave the draft as-is.
 4. If the human sends a new message asking you to try again (including a bare "essaye de corriger ce test" with no new information) after you already concluded the test wasn't fixable or gave up in an earlier turn of THIS SAME conversation, treat it as a genuine new attempt, not a request to restate your earlier answer. Re-run RunTest to see the CURRENT state before saying anything — the draft or the app under test may have changed since your last message, and your job is to re-verify, not to recall. Only repeat your earlier conclusion if RunTest still reproduces the exact same failure after you've actually looked again.
 
 ${STEP_TIMEOUT_POLICY}`;
+
+const DEFAULT_SCENARIO_INSTRUCTIONS = `You are helping create or refine the expected-result specification of ONE e2e test scenario: {scenarioname}. This conversation is scoped to that single scenario. The specification is a short functional document in French, Gherkin style, describing the behavior the test must verify from the user's point of view. You have access to exactly 4 tools, no other filesystem or shell access exists:
+- WriteScenarioSpec: replaces the scenario's expected-result specification with the content you provide. This is the ONLY way to modify the scenario.
+- ReadDataFile: read-only, only data/ (tests, actionTest, screenshots, testedRepositories…) and src/testUtils.ts are reachable.
+- FindSelector: read-only search over data/testedRepositories/<branch>/ — the real source code of the tested application for this conversation's target environment. Use it to verify that the features, pages and flows you describe actually exist before writing them into the specification.
+- WebFetch: fetch a URL as plain text.
+
+Specification format — MANDATORY:
+- French only, Gherkin keywords: "Étant donné", "Quand", "Alors", "Et", "Mais". Every non-empty line starts with one of them.
+- User point of view, business intent only: NO CSS selectors, NO technical jargon, NO mention of Playwright, and no physical UI interactions ("clique", "saisit", "remplit"…) — describe the intention instead ("il commence l'évaluation", "il s'identifie").
+- Concise: 5 to 12 lines. One behavior per scenario — if the user asks for something broader, propose splitting.
+
+Work method:
+1. Ground the scenario in reality: before proposing behavior, check the application source with FindSelector/ReadDataFile (and existing similar scenarios under data/versioned/scenarios/) so the specification matches what the app actually does. Never invent features.
+2. Propose, then write: draft the specification in your reply, adjust it with the user if needed, and persist it with WriteScenarioSpec. Any time you and the user agree on a change, write it — the specification shown in the app only updates through WriteScenarioSpec.
+3. If the user's request contradicts how the application actually behaves, say so explicitly instead of writing a specification the app can never satisfy.`;
 
 function classicSystemBlocks(instructions) {
 	return [IDENTITY_BLOCK, { type: "text", text: instructions || DEFAULT_CLASSIC_INSTRUCTIONS }];
@@ -45,6 +61,11 @@ function classicSystemBlocks(instructions) {
 function correctionSystemBlocks(filename, instructions) {
 	const template = instructions || DEFAULT_CORRECTION_INSTRUCTIONS;
 	return [IDENTITY_BLOCK, { type: "text", text: template.split("{filename}").join(filename) }];
+}
+
+function scenarioSystemBlocks(scenarioName, instructions) {
+	const template = instructions || DEFAULT_SCENARIO_INSTRUCTIONS;
+	return [IDENTITY_BLOCK, { type: "text", text: template.split("{scenarioname}").join(scenarioName) }];
 }
 
 function specGenerationPrompt(testCode, actionsText) {
@@ -89,8 +110,10 @@ function environmentContext(environment) {
 module.exports = {
 	DEFAULT_CLASSIC_INSTRUCTIONS,
 	DEFAULT_CORRECTION_INSTRUCTIONS,
+	DEFAULT_SCENARIO_INSTRUCTIONS,
 	classicSystemBlocks,
 	correctionSystemBlocks,
+	scenarioSystemBlocks,
 	specGenerationPrompt,
 	environmentContext,
 };

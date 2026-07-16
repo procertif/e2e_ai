@@ -3,7 +3,7 @@ import { apiFetch } from "../api";
 
 export interface AiQueueTaskSummary {
   id: number;
-  kind: "conversation" | "correction";
+  kind: "conversation" | "correction" | "scenario";
   targetKey: string;
   status: "queued" | "running";
   runId: string | null;
@@ -15,7 +15,7 @@ interface AiQueueContextValue {
   tasks: AiQueueTaskSummary[];
   paused: boolean;
   correctionsPaused: boolean;
-  findTask: (kind: "conversation" | "correction", targetKey: string) => AiQueueTaskSummary | undefined;
+  findTask: (kind: "conversation" | "correction" | "scenario", targetKey: string) => AiQueueTaskSummary | undefined;
   refresh: () => Promise<void>;
   resume: () => Promise<void>;
 }
@@ -61,7 +61,7 @@ export function AiQueueProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  const findTask = (kind: "conversation" | "correction", targetKey: string) =>
+  const findTask = (kind: "conversation" | "correction" | "scenario", targetKey: string) =>
     tasks.find((t) => t.kind === kind && t.targetKey === targetKey);
 
   return <AiQueueContext.Provider value={{ tasks, paused, correctionsPaused, findTask, refresh, resume }}>{children}</AiQueueContext.Provider>;

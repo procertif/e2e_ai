@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { fuzzyMatch } from "../utils/format";
@@ -136,9 +138,7 @@ export default function ScreenshotsPage() {
         <span className="badge-env">TEST RESULTS</span>
         <div className="ms-auto d-flex align-items-center gap-2">
           <div className="search-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11" />
-            </svg>
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 13 }} />
             <input
               type="text"
               className="search-input"

@@ -51,6 +51,7 @@ export function toolLabel(name: string, input: Record<string, unknown> | null | 
   if (n === "runtest") return `Lecture du test ${titles.testTitle(filename)}`;
   if (n === "webfetch") return `Requêtage ${(input?.url as string) || ""}`;
   if (n === "findselector") return "Lecture du code";
+  if (n === "writescenariospec") return "Édition du résultat attendu";
   return name;
 }
 

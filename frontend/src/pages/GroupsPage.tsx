@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faMagnifyingGlass,
+  faPenToSquare,
+  faTrash,
+  faFolderPlus,
+  faListCheck,
+  faTriangleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { groupColor, fuzzyMatch } from "../utils/format";
@@ -237,9 +246,7 @@ export default function GroupsPage() {
                 </span>
               </div>
               <div className="panel-search-wrap">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11" />
-                </svg>
+                <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 13 }} />
                 <input
                   type="text"
                   className="panel-search-input"
@@ -295,10 +302,7 @@ export default function GroupsPage() {
                           openTestRenameModal(tst.filename);
                         }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                          <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12z" />
-                          <path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z" />
-                        </svg>
+                        <FontAwesomeIcon icon={faPenToSquare} style={{ fontSize: 12 }} />
                       </button>
                       <button
                         className="btn-test-action btn-test-delete"
@@ -308,10 +312,7 @@ export default function GroupsPage() {
                           deleteTest(tst.filename);
                         }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                          <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
-                          <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
-                        </svg>
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
                       </button>
                     </div>
                     <button className={"group-assign-btn" + extraClass} style={btnStyle} onClick={() => setPickerFilename(tst.filename)}>
@@ -336,10 +337,7 @@ export default function GroupsPage() {
             <div className="panel-body">
               {groups.length === 0 && (
                 <div className="queue-empty">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" style={{ opacity: 0.25 }}>
-                    <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z" />
-                    <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5z" />
-                  </svg>
+                  <FontAwesomeIcon icon={faFolderPlus} style={{ fontSize: 32, opacity: 0.25 }} />
                   <p>{t("groups_empty_message")}</p>
                 </div>
               )}
@@ -359,24 +357,13 @@ export default function GroupsPage() {
                       </div>
                       <div className="group-card-actions">
                         <button className="btn-group-action btn-group-manage" title={t("btn_manage_tests_title")} onClick={() => openManageModal(g.id)}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                            <path
-                              fillRule="evenodd"
-                              d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5M3.854 2.146a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708L2 3.293l1.146-1.147a.5.5 0 0 1 .708 0m0 4a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708L2 7.293l1.146-1.147a.5.5 0 0 1 .708 0m0 4a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0"
-                            />
-                          </svg>
+                          <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12 }} />
                         </button>
                         <button className="btn-group-action btn-group-rename" title={t("btn_rename_title")} onClick={() => openRenameModal(g.id)}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12z" />
-                            <path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z" />
-                          </svg>
+                          <FontAwesomeIcon icon={faPenToSquare} style={{ fontSize: 12 }} />
                         </button>
                         <button className="btn-group-action btn-group-delete" title={t("btn_delete_title")} onClick={() => deleteGroup(g.id)}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
-                            <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
-                          </svg>
+                          <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
                         </button>
                       </div>
                     </div>
@@ -466,9 +453,7 @@ export default function GroupsPage() {
             </div>
             <div className="results-dialog-body" style={{ padding: "1.25rem 1.5rem" }}>
               <div className="delete-confirm-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
-                </svg>
+                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 28 }} />
               </div>
               <p className="delete-confirm-message">
                 {t("test_delete_confirm_prefix")} « {testDeleteModal.test.alias || testDeleteModal.test.name} » ?
@@ -538,9 +523,7 @@ export default function GroupsPage() {
             </div>
             <div className="results-dialog-body" style={{ padding: "1.25rem 1.5rem" }}>
               <div className="delete-confirm-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
-                </svg>
+                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 28 }} />
               </div>
               <p className="delete-confirm-message">
                 {lang === "fr" ? "Supprimer le groupe" : "Delete group"} « {deleteGroupModal.group.name} » ?
@@ -588,9 +571,7 @@ export default function GroupsPage() {
               </button>
             </div>
             <div className="manage-tests-search-wrap">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11" />
-              </svg>
+              <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 13 }} />
               <input
                 type="text"
                 className="panel-search-input"

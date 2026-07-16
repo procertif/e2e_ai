@@ -14,46 +14,69 @@ module.exports = function createAnthropicClient({ envLocal, promptsConfig }) {
 	const ANTHROPIC_MODEL = envLocal.ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL;
 	const CREDENTIALS_PATH = path.join(os.homedir(), ".claude", ".credentials.json");
 
+	// Anthropic rotates refresh tokens: two concurrent refreshes invalidate
+	// each other (the loser gets invalid_grant and would be stuck with the
+	// expired access token). Single-flight so parallel callers share one
+	// refresh instead of racing.
+	let refreshInFlight = null;
+
 	async function getOAuthToken() {
 		const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf-8"));
 		const oauth = creds.claudeAiOauth;
 		if (!oauth?.accessToken) throw new Error('No OAuth credentials found. Run "claude login" first.');
 
-		if (Date.now() >= (oauth.expiresAt || 0) - 60_000) {
-			const body = Buffer.from(JSON.stringify({
-				grant_type: "refresh_token",
-				refresh_token: oauth.refreshToken,
-				client_id: ANTHROPIC_CLIENT_ID,
-			}));
-			const data = await new Promise((resolve, reject) => {
-				const req = https.request({
-					hostname: "console.anthropic.com",
-					path: "/v1/oauth/token",
-					method: "POST",
-					headers: { "Content-Type": "application/json", "Content-Length": body.length },
-				}, (res) => {
-					let raw = "";
-					res.on("data", c => raw += c);
-					res.on("end", () => { try { resolve(JSON.parse(raw)); } catch { resolve({}); } });
-				});
-				req.on("error", reject);
-				req.write(body);
-				req.end();
-			});
-			if (data.access_token) {
-				oauth.accessToken = data.access_token;
-				oauth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-				if (data.refresh_token) oauth.refreshToken = data.refresh_token;
-				fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2));
-			}
+		if (Date.now() < (oauth.expiresAt || 0) - 60_000) return oauth.accessToken;
+
+		if (!refreshInFlight) {
+			refreshInFlight = refreshOAuthToken().finally(() => { refreshInFlight = null; });
 		}
+		return refreshInFlight;
+	}
+
+	async function refreshOAuthToken() {
+		// Re-read: another caller (or the claude CLI itself) may have
+		// refreshed while we were queued behind the in-flight promise.
+		const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf-8"));
+		const oauth = creds.claudeAiOauth;
+		if (Date.now() < (oauth.expiresAt || 0) - 60_000) return oauth.accessToken;
+
+		const body = Buffer.from(JSON.stringify({
+			grant_type: "refresh_token",
+			refresh_token: oauth.refreshToken,
+			client_id: ANTHROPIC_CLIENT_ID,
+		}));
+		const data = await new Promise((resolve, reject) => {
+			const req = https.request({
+				hostname: "console.anthropic.com",
+				path: "/v1/oauth/token",
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Content-Length": body.length },
+			}, (res) => {
+				let raw = "";
+				res.on("data", c => raw += c);
+				res.on("end", () => { try { resolve(JSON.parse(raw)); } catch { resolve({}); } });
+			});
+			req.on("error", reject);
+			req.write(body);
+			req.end();
+		});
+		if (!data.access_token) {
+			const detail = data.error_description || data.error || "no access_token in response";
+			const err = new Error(`Claude Code OAuth token refresh failed (${detail}). Run "claude login" to re-authenticate.`);
+			err.isAuthError = true;
+			throw err;
+		}
+		oauth.accessToken = data.access_token;
+		oauth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+		if (data.refresh_token) oauth.refreshToken = data.refresh_token;
+		fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2));
 		return oauth.accessToken;
 	}
 
 	// Streams one model turn. onEvent receives { type: "delta", text } and
 	// { type: "tool_start", name, id, input } as they arrive; resolves with
 	// { stopReason, content, usage } once the turn is complete.
-	function callClaudeStream(token, messages, onEvent, instructions, signal, baseSystemBlocks) {
+	function callClaudeStream(token, messages, onEvent, instructions, signal, baseSystemBlocks, toolsOverride) {
 		// Re-resolved on every call so a prompt edit on the Configuration page
 		// applies to the next model turn without a restart.
 		const systemBlocks = (baseSystemBlocks || (promptsConfig ? promptsConfig.classicBlocks() : classicSystemBlocks())).map((b) => ({ ...b }));
@@ -65,7 +88,7 @@ module.exports = function createAnthropicClient({ envLocal, promptsConfig }) {
 			model: ANTHROPIC_MODEL,
 			max_tokens: 16000,
 			system: systemBlocks,
-			tools: TOOLS,
+			tools: toolsOverride || TOOLS,
 			messages: withCachedTail(messages),
 			stream: true,
 		}));
@@ -101,7 +124,10 @@ module.exports = function createAnthropicClient({ envLocal, promptsConfig }) {
 							const parsed = JSON.parse(errBody);
 							if (parsed?.error?.message) message = parsed.error.message;
 						} catch {}
-						reject(new Error(message));
+						const err = new Error(message);
+						err.status = res.statusCode;
+						err.isAuthError = res.statusCode === 401;
+						reject(err);
 					});
 					return;
 				}

@@ -8,17 +8,20 @@ module.exports = function createPromptsConfigController({ promptsConfig }) {
 	});
 
 	router.put("/config/prompts", (req, res) => {
-		const { classic, correction } = req.body || {};
-		if ((classic != null && typeof classic !== "string") || (correction != null && typeof correction !== "string")) {
-			res.status(400).send("classic/correction must be strings or null");
-			return;
+		const body = req.body || {};
+		for (const key of promptsConfig.KEYS) {
+			const value = body[key];
+			if (value != null && typeof value !== "string") {
+				res.status(400).send(`${key} must be a string or null`);
+				return;
+			}
+			// 100kB guard: these land in every model call's system blocks.
+			if ((value?.length || 0) > 100_000) {
+				res.status(400).send("Prompt too long");
+				return;
+			}
 		}
-		// 100kB guard: these land in every model call's system blocks.
-		if ((classic?.length || 0) > 100_000 || (correction?.length || 0) > 100_000) {
-			res.status(400).send("Prompt too long");
-			return;
-		}
-		res.json(promptsConfig.set({ classic, correction }));
+		res.json(promptsConfig.set(body));
 	});
 
 	return router;

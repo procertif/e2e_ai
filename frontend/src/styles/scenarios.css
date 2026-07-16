@@ -367,6 +367,27 @@
   margin-top: 0.1rem;
 }
 
+.scenario-link-badge {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.scenario-link-badge--linked {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.scenario-link-badge--unlinked {
+  background: #f8d7da;
+  color: #842029;
+}
+
 /* ── Backdrop ── */
 
 .drawer-backdrop {
@@ -602,4 +623,74 @@
 
 .drawer-send-btn:not(:disabled):hover {
   background: #4f46e5;
+}
+
+/* ── 3-panel layout (list / spec / chat) ── */
+
+.scenarios-layout .scenarios-list-panel {
+  flex: 0 0 260px;
+  min-width: 220px;
+}
+
+.scenarios-layout .scenarios-spec-panel {
+  flex: 1.2;
+  min-width: 0;
+}
+
+.scenarios-layout .scenarios-chat-panel {
+  flex: 1.5;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.scenario-create-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.scenario-create-row .panel-search-input {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+
+.scenarios-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scenario-env-select {
+  max-width: 200px;
+  font-size: 0.78rem;
+}
+
+.scenarios-chat-panel .correction-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-slug-preview {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #6c757d;
+}
+
+.scenario-slug-preview code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-size: 0.75rem;
 }

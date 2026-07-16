@@ -25,7 +25,12 @@ module.exports = function createSpecGenerator({ TESTS_DIR, client, scenarios }) 
 			scenarios.upsert(testname, { spec });
 			console.log(`[spec] Généré : ${testname} (${spec.length} chars)`);
 		} catch (e) {
-			console.error(`[spec] Erreur pour ${testname}:`, e.message || String(e));
+			const msg = e.message || String(e);
+			if (e.isAuthError) {
+				console.error(`\x1b[31m[spec] ⚠ Authentification Anthropic (token OAuth Claude Code, ~/.claude/.credentials.json) : ${msg}\x1b[0m`);
+			} else {
+				console.error(`[spec] Erreur pour ${testname}: ${msg}`);
+			}
 		}
 	}
 

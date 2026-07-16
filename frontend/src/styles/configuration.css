@@ -7,28 +7,100 @@
   padding: 1.5rem 0;
 }
 
-.config-intro {
-  font-size: 0.85rem;
-  color: #6c757d;
-  margin: 0 0 1.25rem;
-  max-width: 720px;
+/* ── Layout: left menu / right editor ── */
+
+.config-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
 }
 
-.config-prompt {
-  margin-bottom: 1.5rem;
+.config-menu {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  position: sticky;
+  top: 0;
 }
 
-.config-prompt-header {
+.config-menu-item {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
 }
 
-.config-prompt-header h2 {
+.config-menu-item:hover {
+  background: #f1f5f9;
+}
+
+.config-menu-item.is-active {
+  background: #ede9fe;
+  color: #4f46e5;
+}
+
+.config-menu-dot {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366f1;
+}
+
+.config-editor-pane {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.config-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.config-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.config-editor-title h2 {
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0;
+}
+
+.config-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.config-editor-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .config-badge {
@@ -56,31 +128,42 @@
   margin: 0 0 0.5rem;
 }
 
+/* ── Editor ── */
+
 .config-prompt-textarea {
   width: 100%;
-  min-height: 280px;
+  min-height: 420px;
   resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  padding: 0.75rem;
+  font-family: "SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  padding: 1rem 1.15rem;
   border: 1px solid #dee2e6;
-  border-radius: 8px;
-  background: #fff;
-  color: #212529;
+  border-radius: 10px;
+  background: #fcfcfd;
+  color: #1e293b;
+  tab-size: 2;
 }
 
 .config-prompt-textarea:focus {
   outline: none;
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+  border-color: #a5b4fc;
+  background: #fff;
+  box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.12);
 }
 
 .config-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding-bottom: 2rem;
+  margin-top: 0.85rem;
+}
+
+.config-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .config-saved {

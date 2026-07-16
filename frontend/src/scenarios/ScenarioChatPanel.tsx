@@ -2,16 +2,11 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { apiFetch, apiStreamUrl } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { useAiQueue } from "../ai/AiQueueContext";
-import { useEnvironment } from "../environment/EnvironmentContext";
 import { waitForTaskRunId, cancelQueuedTask } from "../ai/aiQueueClient";
 import { toolPillClass } from "../utils/toolPills";
-import { toolLabel, readFileLineInfo, findSelectorMatches } from "../utils/toolNarration";
+import { toolLabel, findSelectorMatches } from "../utils/toolNarration";
 import { useEntityTitles } from "../utils/useEntityTitles";
 import { useStickyScroll } from "../utils/useStickyScroll";
-import { ToolDiffView } from "../chat/ToolDiff";
-import { ToolConsole } from "../chat/ToolConsole";
-
-const DIFF_CAPABLE = new Set(["writetestfile"]);
 
 interface ChatBlock {
   type: "text" | "tool" | "image";
@@ -29,15 +24,14 @@ interface ChatTurn {
   blocks: ChatBlock[];
 }
 
-// The backend's SSE endpoint supports multiple independent listeners on the
-// same run, so this panel can tap into whichever runId is currently live
-// for this test and render it the same way regardless of who/what started
-// it — a message sent right here, a bulk-correction pass, or a run already
-// in flight when this component (re)mounts.
+// Sibling of CorrectionChatPanel, scoped to one scenario's expected-result
+// spec. Same SSE machinery; the scenario's spec shown in the middle panel
+// refreshes through onUpdate whenever a run finishes (WriteScenarioSpec may
+// have rewritten it).
 function consumeStream(
   runId: string,
   setLiveBlocks: Dispatch<SetStateAction<ChatBlock[] | null>>,
-  onDone: (status: string, error?: string) => void
+  onDone: (status: string, error?: string) => void,
 ) {
   const es = new EventSource(apiStreamUrl(`/api/chat-stream/${runId}`));
   let text = "";
@@ -59,17 +53,8 @@ function consumeStream(
     } else if (event.type === "tool_start") {
       text = "";
       setLiveBlocks((blocks) => [...(blocks || []), { type: "tool", id: event.id, name: event.name, input: event.input || null }]);
-    } else if (event.type === "tool_output") {
-      // Live console lines from a RunTest in progress — appended as they
-      // arrive; the final tool_result below replaces the accumulation with
-      // the definitive full output (so no duplication on stream replay).
-      setLiveBlocks((blocks) =>
-        (blocks || []).map((b) => (b.type === "tool" && b.id === event.tool_use_id ? { ...b, result: (b.result || "") + event.text } : b))
-      );
     } else if (event.type === "tool_result") {
       setLiveBlocks((blocks) => (blocks || []).map((b) => (b.type === "tool" && b.id === event.tool_use_id ? { ...b, result: event.content } : b)));
-    } else if (event.type === "tool_image") {
-      setLiveBlocks((blocks) => [...(blocks || []), { type: "image", media_type: event.media_type, data: event.data }]);
     } else if (event.type === "done") {
       es.close();
       onDone(event.status, event.error);
@@ -88,8 +73,6 @@ function rawToTurns(messages: unknown[]): ChatTurn[] {
     if (!msg || (msg.role !== "user" && msg.role !== "assistant")) continue;
     const content = Array.isArray(msg.content) ? msg.content : [{ type: "text", text: String(msg.content ?? "") }];
     if (content.length > 0 && content.every((b: any) => b?.type === "tool_result")) {
-      // The only place this text still exists on reload — attach it to the
-      // matching tool_use block on the turn right before it.
       const last = turns[turns.length - 1];
       if (last?.role === "assistant") {
         for (const rb of content) {
@@ -110,67 +93,13 @@ function rawToTurns(messages: unknown[]): ChatTurn[] {
   return turns;
 }
 
-function ToolRow({
-  filename,
-  b,
-  spinning,
-  isOpen,
-  onToggle,
-  titles,
-}: {
-  filename: string;
-  b: ChatBlock;
-  spinning: boolean;
-  isOpen: boolean;
-  onToggle: () => void;
-  titles: ReturnType<typeof useEntityTitles>;
-}) {
-  const n = (b.name || "").toLowerCase();
-  const expandable = DIFF_CAPABLE.has(n);
-  const lineInfo = n === "readdatafile" ? readFileLineInfo(b.input, b.result) : null;
-  const matches = n === "findselector" ? findSelectorMatches(b.result) : [];
-  return (
-    <div className="tool-row">
-      <span
-        className={`tool-pill tool-pill--${toolPillClass(b.name || "")}${expandable ? " tool-pill--expandable" : ""}${isOpen ? " tool-pill--open" : ""}`}
-        title={JSON.stringify(b.input, null, 2)}
-        onClick={expandable ? onToggle : undefined}
-      >
-        {spinning && <span className="spinner-border spinner-xs tool-pill-spinner" role="status" aria-hidden="true" />}
-        {toolLabel(b.name || "", b.input, titles, filename)}
-        {lineInfo && <span className="tool-pill-suffix"> — {lineInfo}</span>}
-        {expandable && <span className="tool-pill-chevron">{isOpen ? "▾" : "▸"}</span>}
-      </span>
-      {expandable && isOpen && <ToolDiffView name={b.name || ""} input={b.input} filePathOverride={`data/versioned/tests/${filename}`} />}
-      {n === "runtest" && b.result && <ToolConsole text={b.result} />}
-      {matches.length > 0 && (
-        <div className="tool-matches">
-          {matches.map((m, i) => (
-            <div className="tool-match-row" key={i}>
-              {m.file} — {m.lines.length === 1 ? `ligne ${m.lines[0]}` : `lignes ${m.lines.join(", ")}`}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TurnBlocks({
-  filename,
   blocks,
   live,
-  collapsedTools,
-  onToggleTool,
-  turnKey,
   titles,
 }: {
-  filename: string;
   blocks: ChatBlock[];
   live: boolean;
-  collapsedTools: Set<string>;
-  onToggleTool: (key: string) => void;
-  turnKey: string;
   titles: ReturnType<typeof useEntityTitles>;
 }) {
   return (
@@ -178,17 +107,24 @@ function TurnBlocks({
       {blocks.map((b, j) => {
         const isLast = j === blocks.length - 1;
         if (b.type === "tool") {
-          const diffKey = `${turnKey}-${j}`;
+          const n = (b.name || "").toLowerCase();
+          const matches = n === "findselector" ? findSelectorMatches(b.result) : [];
           return (
-            <ToolRow
-              key={j}
-              filename={filename}
-              b={b}
-              spinning={live && isLast}
-              isOpen={!collapsedTools.has(diffKey)}
-              onToggle={() => onToggleTool(diffKey)}
-              titles={titles}
-            />
+            <div className="tool-row" key={j}>
+              <span className={`tool-pill tool-pill--${toolPillClass(b.name || "")}`} title={JSON.stringify(b.input, null, 2)}>
+                {live && isLast && <span className="spinner-border spinner-xs tool-pill-spinner" role="status" aria-hidden="true" />}
+                {toolLabel(b.name || "", b.input, titles)}
+              </span>
+              {matches.length > 0 && (
+                <div className="tool-matches">
+                  {matches.map((m, i) => (
+                    <div className="tool-match-row" key={i}>
+                      {m.file} — {m.lines.length === 1 ? `ligne ${m.lines[0]}` : `lignes ${m.lines.join(", ")}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         }
         if (b.type === "image") {
@@ -200,54 +136,39 @@ function TurnBlocks({
   );
 }
 
-export default function CorrectionChatPanel({ filename, onUpdate }: { filename: string; onUpdate?: () => void }) {
+export default function ScenarioChatPanel({
+  testname,
+  environmentId,
+  onUpdate,
+}: {
+  testname: string;
+  environmentId: number | null;
+  onUpdate?: () => void;
+}) {
   const { t } = useI18n();
   const { findTask } = useAiQueue();
-  const { selectedId: selectedEnvironmentId } = useEnvironment();
   const titles = useEntityTitles();
   const [turns, setTurns] = useState<ChatTurn[] | null>(null);
   const [liveBlocks, setLiveBlocks] = useState<ChatBlock[] | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
-  const [collapsedTools, setCollapsedTools] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const messagesRef = useStickyScroll<HTMLDivElement>([turns, liveBlocks, queuePosition], undefined, filename);
+  const messagesRef = useStickyScroll<HTMLDivElement>([turns, liveBlocks, queuePosition], undefined, testname);
   const watchedRunId = useRef<string | null>(null);
   const activeStream = useRef<EventSource | null>(null);
   const cancelledWait = useRef(false);
   const queuedTaskId = useRef<number | null>(null);
-  // Tracks the filename currently displayed so async continuations started
-  // for a previous test (send() awaiting the queue) can detect the switch
-  // and bail instead of attaching the old test's stream to the new panel.
-  const currentFilename = useRef(filename);
 
-  const toggleTool = (key: string) => {
-    setCollapsedTools((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  // Derived rather than tracked separately — "am I waiting on anything"
-  // always reduces to one of these two, whether this panel or something
-  // else (bulk-correction, another tab) is driving it.
   const sending = liveBlocks !== null || queuePosition !== null;
 
   const loadHistory = async () => {
-    const res = await apiFetch("/api/corrections/" + encodeURIComponent(filename));
+    const res = await apiFetch("/api/scenarios/" + encodeURIComponent(testname));
     if (res.ok) {
       const data = await res.json();
       setTurns(rawToTurns(data.chatMessages || []));
     }
   };
 
-  // Closing the previous EventSource is the whole point here — without it,
-  // switching to a different test's IA tab left the old stream open, and its
-  // onmessage kept firing setLiveBlocks against whichever test happened to
-  // be rendered afterward (a "queued" test showing the "running" one's
-  // live output).
   const closeStream = () => {
     activeStream.current?.close();
     activeStream.current = null;
@@ -255,7 +176,6 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
   };
 
   useEffect(() => {
-    currentFilename.current = filename;
     closeStream();
     setTurns(null);
     setLiveBlocks(null);
@@ -264,7 +184,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
     loadHistory();
     return closeStream;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filename]);
+  }, [testname]);
 
   const attachToRun = (runId: string) => {
     if (watchedRunId.current === runId) return;
@@ -284,10 +204,9 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
     });
   };
 
-  // Reattach to whatever's active for this test on every queue poll — a
-  // bulk-correction pass, a message from another tab, or one already in
-  // flight when this component (re)mounts, all look the same from here.
-  const activeTask = findTask("correction", filename);
+  // Reattach to whatever's active for this scenario on every queue poll —
+  // a run already in flight when this component (re)mounts included.
+  const activeTask = findTask("scenario", testname);
   useEffect(() => {
     if (!activeTask) return;
     if (activeTask.status === "running" && activeTask.runId) attachToRun(activeTask.runId);
@@ -298,28 +217,21 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
   const send = async () => {
     const message = input.trim();
     if (!message || sending) return;
-    // Everything after an await below may run once the user has switched to
-    // another test — the panel then belongs to that other test, and attaching
-    // this run's stream to it would mix the two chats on screen. Each resume
-    // point re-checks that the panel still shows the test this send targeted.
-    const forFilename = filename;
     setInput("");
     setError(null);
     cancelledWait.current = false;
     setTurns((prev) => [...(prev || []), { role: "user", blocks: [{ type: "text", text: message }] }]);
     try {
-      const res = await apiFetch(`/api/corrections/${encodeURIComponent(forFilename)}/chat`, {
+      const res = await apiFetch(`/api/scenarios/${encodeURIComponent(testname)}/chat`, {
         method: "POST",
-        body: JSON.stringify({ message, environmentId: selectedEnvironmentId }),
+        body: JSON.stringify({ message, environmentId }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { taskId, status, runId: immediateRunId } = await res.json();
-      if (currentFilename.current !== forFilename) return;
       if (status === "queued") {
         queuedTaskId.current = taskId;
         setQueuePosition(0);
-        const runId = await waitForTaskRunId(taskId, () => cancelledWait.current || currentFilename.current !== forFilename);
-        if (currentFilename.current !== forFilename) return;
+        const runId = await waitForTaskRunId(taskId, () => cancelledWait.current);
         queuedTaskId.current = null;
         if (runId) attachToRun(runId);
         else setQueuePosition(null);
@@ -327,14 +239,10 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
         attachToRun(immediateRunId);
       }
     } catch (err) {
-      if (currentFilename.current === forFilename) setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  // Mirrors ChatContext's stopStreaming: a run mid-stream is aborted via
-  // /chat-stop (the SSE "done" event then cleans up liveBlocks), while a
-  // task still queued is just removed from the queue. activeTask covers
-  // waits this panel didn't initiate (a bulk-correction pass, another tab).
   const stop = () => {
     cancelledWait.current = true;
     if (watchedRunId.current) {
@@ -351,10 +259,10 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
     <div className="correction-chat">
       <div className="correction-chat-messages" ref={messagesRef}>
         {turns === null && <p className="correction-chat-hint">{t("loading")}</p>}
-        {turns?.length === 0 && !liveBlocks && queuePosition === null && <p className="correction-chat-hint">{t("correction_chat_empty")}</p>}
+        {turns?.length === 0 && !liveBlocks && queuePosition === null && <p className="correction-chat-hint">{t("scenario_chat_empty")}</p>}
         {turns?.map((turn, i) => (
           <div className={"correction-chat-turn correction-chat-turn--" + turn.role} key={i}>
-            <TurnBlocks filename={filename} blocks={turn.blocks} live={false} collapsedTools={collapsedTools} onToggleTool={toggleTool} turnKey={"h" + i} titles={titles} />
+            <TurnBlocks blocks={turn.blocks} live={false} titles={titles} />
           </div>
         ))}
         {queuePosition !== null && (
@@ -365,7 +273,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
         )}
         {liveBlocks && (
           <div className="correction-chat-turn correction-chat-turn--assistant">
-            <TurnBlocks filename={filename} blocks={liveBlocks} live collapsedTools={collapsedTools} onToggleTool={toggleTool} turnKey="live" titles={titles} />
+            <TurnBlocks blocks={liveBlocks} live titles={titles} />
             {(liveBlocks.length === 0 || liveBlocks[liveBlocks.length - 1].type !== "tool") && (
               <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />
             )}
@@ -377,7 +285,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
         <textarea
           className="form-control"
           rows={2}
-          placeholder={t("correction_chat_placeholder")}
+          placeholder={t("scenario_chat_placeholder")}
           value={input}
           disabled={sending}
           onChange={(e) => setInput(e.target.value)}

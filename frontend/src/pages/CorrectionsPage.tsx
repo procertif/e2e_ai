@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash, faCheck, faRobot, faPen, faXmark, faPlay, faPause, faStop } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { useAiQueue } from "../ai/AiQueueContext";
@@ -19,7 +21,7 @@ import "../styles/chat.css";
 import "../styles/screenshots.css";
 import "../styles/corrections.css";
 
-type CorrectionTab = "editor" | "console" | "ia" | "screenshots";
+type CorrectionTab = "editor" | "console" | "ia" | "screenshots" | "scenario";
 
 interface CorrectionScreenshot {
   url: string;
@@ -27,69 +29,35 @@ interface CorrectionScreenshot {
 }
 
 function TrashIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
-      <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />;
 }
 
 function CheckIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12 }} />;
 }
 
 function RobotIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.58 26.58 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.933.933 0 0 1-.765.935c-.845.147-2.34.346-4.235.346-1.895 0-3.39-.2-4.235-.346A.933.933 0 0 1 3 9.219zm4.542-.827a.25.25 0 0 0-.217.068l-.92.9a24.767 24.767 0 0 1-1.871-.183.25.25 0 0 0-.068.495c.55.076 1.232.149 2.02.193a.25.25 0 0 0 .189-.071l.754-.736.847 1.71a.25.25 0 0 0 .404.062l.932-.97a25.286 25.286 0 0 0 1.922-.188.25.25 0 0 0-.068-.495c-.538.074-1.207.145-1.98.189a.25.25 0 0 0-.166.076l-.754.785-.842-1.7a.25.25 0 0 0-.182-.135" />
-      <path d="M8.5 1.866a1 1 0 1 0-1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1v-.5A4.5 4.5 0 0 0 9.5 3h-1zM14 7.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faRobot} style={{ fontSize: 12 }} />;
 }
 
 function PencilIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zM12.793 5.5 10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zM3.51 10.91l-.83 2.077 2.078-.83z" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />;
 }
 
 function XIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M2.146 2.146a.5.5 0 0 1 .708 0L8 7.293l5.146-5.147a.5.5 0 1 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854a.5.5 0 0 1 0-.708" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />;
 }
 
 function PlayIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="m11.596 8.697-6.363 3.692c-.54.315-1.233-.074-1.233-.697V4.308c0-.623.693-1.012 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faPlay} style={{ fontSize: 12 }} />;
 }
 
 function PauseIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M6 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faPause} style={{ fontSize: 12 }} />;
 }
 
 function StopIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faStop} style={{ fontSize: 12 }} />;
 }
 
 function fmtDate(ms: number, lang: string) {
@@ -125,6 +93,7 @@ export default function CorrectionsPage() {
   const [dotCount, setDotCount] = useState(1);
   const [screenshots, setScreenshots] = useState<CorrectionScreenshot[]>([]);
   const [selectedFilenames, setSelectedFilenames] = useState<Set<string>>(new Set());
+  const [scenarioSpec, setScenarioSpec] = useState<string | null>(null);
 
   // The AI queue (see AiQueueContext) is the single and only source of
   // truth for batch state: "Démarrer" just enqueues N correction tasks on
@@ -195,6 +164,13 @@ export default function CorrectionsPage() {
   useEffect(() => {
     setActiveTab("console");
     setScreenshots([]);
+    setScenarioSpec(null);
+    if (selectedFilename) {
+      apiFetch(`/api/spec/${encodeURIComponent(selectedFilename.replace(/\.spec\.ts$/, ""))}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => setScenarioSpec(data?.spec || null))
+        .catch(() => {});
+    }
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
@@ -572,6 +548,9 @@ export default function CorrectionsPage() {
                   <button className={"correction-tab" + (activeTab === "screenshots" ? " is-active" : "")} onClick={() => setActiveTab("screenshots")}>
                     {t("correction_tab_screenshots")} {screenshots.length > 0 && `(${screenshots.length})`}
                   </button>
+                  <button className={"correction-tab" + (activeTab === "scenario" ? " is-active" : "")} onClick={() => setActiveTab("scenario")}>
+                    {t("correction_tab_scenario")}
+                  </button>
                 </div>
                 <pre className={"correction-console-body" + (activeTab === "console" ? "" : " d-none")} ref={consoleRef}>
                   {selected.consoleOutput || t("correction_console_empty")}
@@ -607,6 +586,13 @@ export default function CorrectionsPage() {
                       refreshSelected(selected.filename);
                     }}
                   />
+                </div>
+                <div className={"correction-scenario-body" + (activeTab === "scenario" ? "" : " d-none")}>
+                  {scenarioSpec ? (
+                    <pre className="correction-scenario-spec">{scenarioSpec}</pre>
+                  ) : (
+                    <p className="correction-chat-hint">{t("correction_scenario_empty")}</p>
+                  )}
                 </div>
                 <div className={"correction-screenshots-body" + (activeTab === "screenshots" ? "" : " d-none")}>
                   {screenshots.length === 0 ? (

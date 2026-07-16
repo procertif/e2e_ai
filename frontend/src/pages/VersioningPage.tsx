@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleDown, faCircleUp, faLaptop, faCloud } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import "../styles/groups.css";
@@ -45,37 +47,19 @@ function groupByCategory(files: DiffFile[]) {
 }
 
 function FetchIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path fillRule="evenodd" d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8m15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8.5 4.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5a.5.5 0 0 1 1 0" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faCircleDown} style={{ fontSize: 12 }} />;
 }
 
 function PushIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path fillRule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8m15 0A8 8 0 1 0 0 8a8 8 0 0 0 16 0M8.5 11.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 1 0" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faCircleUp} style={{ fontSize: 12 }} />;
 }
 
 function LocalIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <rect x="1.5" y="2.5" width="13" height="8" rx="1" />
-      <line x1="5.5" y1="13.5" x2="10.5" y2="13.5" strokeLinecap="round" />
-      <line x1="8" y1="10.5" x2="8" y2="13.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faLaptop} style={{ fontSize: 12 }} />;
 }
 
 function RemoteIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.688 1.166-3.115 2.752-3.505.126-.995.836-1.844 1.654-2.471" />
-    </svg>
-  );
+  return <FontAwesomeIcon icon={faCloud} style={{ fontSize: 12 }} />;
 }
 
 function DiffLine({ line }: { line: string }) {
