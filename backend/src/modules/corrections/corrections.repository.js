@@ -125,10 +125,14 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 			// call); a user edit happens outside it, so the AI's view of the
 			// draft is now wrong — flag for re-injection on the next turn.
 			if (source === "user" && (entry.chatMessages || []).length > 0) entry.contextStale = true;
+			// Only a save that actually changes the draft counts as an edit —
+			// the editor's debounced PUT can echo back unchanged content (e.g.
+			// right after an AI edit synced into it), which must not flip the
+			// "corrigé manuellement" indicator.
+			if (source === "ai") entry.aiEdited = true;
+			if (source === "user") entry.userEdited = true;
 		}
 		entry.draftContent = content;
-		if (source === "ai") entry.aiEdited = true;
-		if (source === "user") entry.userEdited = true;
 		persist(entry);
 		return entry;
 	}

@@ -1,6 +1,44 @@
 // Pure helpers that repair/prepare a conversation history before it's sent
 // to the Anthropic API.
 
+const sharp = require("sharp");
+
+// The API rejects the whole request when any image's longest side exceeds
+// 2000px and the conversation carries many images — which a screenshot-heavy
+// correction/scenario chat quickly does. New images are capped at the source
+// (readDataFile), but histories persisted before that fix still hold
+// oversized ones; this shrinks them in place (the run loops persist the
+// history afterwards, so each conversation is migrated once).
+const MAX_IMAGE_DIMENSION = 1568;
+
+async function capOversizedImages(history) {
+	if (!Array.isArray(history)) return history;
+	const fixBlock = async (b) => {
+		if (b?.type !== "image" || b.source?.type !== "base64" || !b.source.data) return;
+		try {
+			const buffer = Buffer.from(b.source.data, "base64");
+			const image = sharp(buffer);
+			const { width, height } = await image.metadata();
+			if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+				const resized = await image.resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: "inside" }).png().toBuffer();
+				b.source = { type: "base64", media_type: "image/png", data: resized.toString("base64") };
+			}
+		} catch {
+			// Undecodable image — leave it, the API error will name it.
+		}
+	};
+	for (const msg of history) {
+		if (!Array.isArray(msg?.content)) continue;
+		for (const block of msg.content) {
+			await fixBlock(block);
+			if (block?.type === "tool_result" && Array.isArray(block.content)) {
+				for (const inner of block.content) await fixBlock(inner);
+			}
+		}
+	}
+	return history;
+}
+
 // The Anthropic API hard-rejects (400, on every future call — not just the
 // one that would've completed the pairing) any conversation where a tool_use
 // block isn't immediately followed by its tool_result. That can happen from
@@ -78,4 +116,4 @@ function withCachedTail(messages) {
 	return [...messages.slice(0, -1), { ...last, content: blocks }];
 }
 
-module.exports = { sanitizeToolUseHistory, sanitizeSeedHistory, withCachedTail };
+module.exports = { sanitizeToolUseHistory, sanitizeSeedHistory, withCachedTail, capOversizedImages };

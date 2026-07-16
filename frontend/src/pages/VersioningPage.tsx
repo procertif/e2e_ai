@@ -26,6 +26,24 @@ interface DiffFile {
   name: string | null;
 }
 
+interface OperationStep {
+  key: string;
+  status: "running" | "done" | "error";
+  branch?: string;
+  files?: number;
+  behind?: number;
+  commits?: number;
+}
+
+interface Operation {
+  kind: "sync" | "push" | "resolve";
+  status: "running" | "done" | "error" | "conflict";
+  steps: OperationStep[];
+  error: string | null;
+  startedAt: number;
+  endedAt: number | null;
+}
+
 const STATUS_LABELS: Record<string, string> = { A: "status_added", M: "status_modified", D: "status_deleted", stale: "status_stale" };
 const CATEGORY_ORDER = ["campaigns", "groups", "scenarios", "tests", "other"];
 const CATEGORY_LABELS: Record<string, string> = {
@@ -80,6 +98,16 @@ export default function VersioningPage() {
   const [loading, setLoading] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [operation, setOperation] = useState<Operation | null>(null);
+
+  const fetchOperation = async (): Promise<Operation | null> => {
+    try {
+      const res = await apiFetch("/api/versioned-repo/operation");
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -101,6 +129,7 @@ export default function VersioningPage() {
 
   useEffect(() => {
     refresh();
+    fetchOperation().then(setOperation);
   }, []);
 
   const toggleFile = async (file: string) => {
@@ -119,47 +148,62 @@ export default function VersioningPage() {
     }
   };
 
-  const doSync = async () => {
+  // The POST only resolves once the whole git operation is done, so the live
+  // step trace is polled in parallel; one final fetch after it settles shows
+  // the terminal state (done / which step failed / conflict).
+  const runOperation = async (path: string, body?: string) => {
     setLoading(true);
     setError(null);
+    const interval = setInterval(() => fetchOperation().then((op) => op && setOperation(op)), 500);
+    let postError: string | null = null;
     try {
-      const res = await apiFetch("/api/versioned-repo/sync", { method: "POST" });
-      if (!res.ok && res.status !== 409) throw new Error(await res.text());
-      await refresh();
+      const res = await apiFetch(path, { method: "POST", ...(body ? { body } : {}) });
+      if (!res.ok && res.status !== 409) postError = await res.text();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setLoading(false);
+      postError = err instanceof Error ? err.message : String(err);
     }
+    clearInterval(interval);
+    const finalOp = await fetchOperation();
+    setOperation(finalOp);
+    // The operation panel already displays its own failure with the failing
+    // step — only surface errors it couldn't have recorded (network, etc.).
+    if (postError && finalOp?.status !== "error") setError(postError);
+    if (postError) setLoading(false);
+    else await refresh();
   };
 
-  const doPush = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await apiFetch("/api/versioned-repo/push", { method: "POST" });
-      if (!res.ok && res.status !== 409) throw new Error(await res.text());
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setLoading(false);
-    }
-  };
+  const doSync = () => runOperation("/api/versioned-repo/sync");
+  const doPush = () => runOperation("/api/versioned-repo/push");
 
   const resolveConflict = async (resolution: "local" | "remote") => {
     setResolving(true);
-    setError(null);
     try {
-      const res = await apiFetch("/api/versioned-repo/resolve-conflict", { method: "POST", body: JSON.stringify({ resolution }) });
-      if (!res.ok) throw new Error(await res.text());
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      await runOperation("/api/versioned-repo/resolve-conflict", JSON.stringify({ resolution }));
     } finally {
       setResolving(false);
     }
   };
 
   const conflict = status?.conflict || null;
+
+  const stepDetail = (s: OperationStep): string | null => {
+    if (s.key === "prepare") return s.branch ? t("versioning_detail_branch").replace("{b}", s.branch) : null;
+    if (s.key === "commit") {
+      if (s.files === undefined) return null;
+      return s.files === 0 ? t("versioning_detail_no_local_changes") : t("versioning_detail_files_committed").replace("{n}", String(s.files));
+    }
+    if (s.key === "fetch") {
+      if (s.behind === undefined) return null;
+      return s.behind === 0 ? t("versioning_detail_up_to_date") : t("versioning_detail_behind").replace("{n}", String(s.behind));
+    }
+    if (s.key === "merge") return s.commits === undefined ? null : t("versioning_detail_commits_merged").replace("{n}", String(s.commits));
+    if (s.key === "resolve") return s.files === undefined ? null : t("versioning_detail_files_resolved").replace("{n}", String(s.files));
+    if (s.key === "push") return s.branch ? t("versioning_detail_pushed_branch").replace("{b}", s.branch) : null;
+    return null;
+  };
+
+  const operationTitle = (op: Operation) =>
+    op.status === "conflict" ? t("versioning_op_conflict") : t(`versioning_op_${op.kind}_${op.status}`);
 
   return (
     <>
@@ -191,6 +235,29 @@ export default function VersioningPage() {
                 </button>
               </div>
             </div>
+
+            {operation && (
+              <div className={"versioning-operation versioning-operation--" + operation.status}>
+                <div className="versioning-operation-title">
+                  {operation.status === "running" && <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />}
+                  {operationTitle(operation)}
+                </div>
+                <ul className="versioning-operation-steps">
+                  {operation.steps.map((s, i) => (
+                    <li className={"versioning-operation-step is-" + s.status} key={i}>
+                      <span className="versioning-operation-step-icon">
+                        {s.status === "done" ? "✓" : s.status === "error" ? "✗" : (
+                          <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />
+                        )}
+                      </span>
+                      <span>{t(`versioning_step_${s.key}`)}</span>
+                      {stepDetail(s) && <span className="versioning-operation-step-detail">— {stepDetail(s)}</span>}
+                    </li>
+                  ))}
+                </ul>
+                {operation.error && <p className="versioning-error">{operation.error}</p>}
+              </div>
+            )}
 
             {error && <p className="versioning-error">{error}</p>}
 

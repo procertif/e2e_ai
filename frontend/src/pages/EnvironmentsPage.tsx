@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation, faArrowsRotate, faPenToSquare, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
@@ -32,6 +32,13 @@ interface DeleteModal {
   environment: Environment;
 }
 
+interface RepoFetchState {
+  status: "running" | "done" | "error";
+  error: string | null;
+  startedAt: number;
+  endedAt: number | null;
+}
+
 export default function EnvironmentsPage() {
   const { t, ready } = useI18n();
   const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -39,17 +46,37 @@ export default function EnvironmentsPage() {
   const [deleteModal, setDeleteModal] = useState<DeleteModal | null>(null);
   const [branches, setBranches] = useState<string[] | null>(null);
   const [branchesError, setBranchesError] = useState<string | null>(null);
-  const [fetchingIds, setFetchingIds] = useState<Set<number>>(new Set());
-  const [fetchErrors, setFetchErrors] = useState<Record<number, string>>({});
+  // Fetch progress/errors live on the backend, keyed by branch — polling them
+  // (instead of holding a local "fetching" flag) is what lets this page be
+  // left and reopened mid-clone and still show the true state.
+  const [fetchStates, setFetchStates] = useState<Record<string, RepoFetchState>>({});
+  const fetchStatesRef = useRef<Record<string, RepoFetchState>>({});
 
   const refreshEnvironments = async () => {
     const res = await apiFetch("/api/environments");
     setEnvironments(await res.json());
   };
 
+  const pollFetchStatus = async () => {
+    try {
+      const res = await apiFetch("/api/repo/fetch-status");
+      if (!res.ok) return;
+      const next: Record<string, RepoFetchState> = await res.json();
+      const prev = fetchStatesRef.current;
+      const justFinished = Object.keys(next).some((b) => prev[b]?.status === "running" && next[b].status !== "running");
+      fetchStatesRef.current = next;
+      setFetchStates(next);
+      // A fetch that finished (possibly started from another tab, or before a
+      // reload) changes lastFetchedCommit/hasUpdate — refresh the cards.
+      if (justFinished) refreshEnvironments();
+    } catch {}
+  };
+
   useEffect(() => {
     if (!ready) return;
     refreshEnvironments();
+    pollFetchStatus();
+    const interval = setInterval(pollFetchStatus, 1500);
     (async () => {
       try {
         const res = await apiFetch("/api/repo/branches");
@@ -59,20 +86,24 @@ export default function EnvironmentsPage() {
         setBranchesError(err instanceof Error ? err.message : String(err));
       }
     })();
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
-  const handleFetch = async (id: number) => {
-    setFetchingIds((prev) => new Set(prev).add(id));
-    setFetchErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
+  const handleFetch = async (environment: Environment) => {
+    const branch = environment.branch;
+    if (!branch) return;
+    // Optimistic: the next poll (≤1.5s away) takes over with the server state.
+    const optimistic: RepoFetchState = { status: "running", error: null, startedAt: Date.now(), endedAt: null };
+    fetchStatesRef.current = { ...fetchStatesRef.current, [branch]: optimistic };
+    setFetchStates((prev) => ({ ...prev, [branch]: optimistic }));
     try {
-      const res = await apiFetch("/api/environments/" + id + "/fetch", { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
-      await refreshEnvironments();
-    } catch (err) {
-      setFetchErrors((prev) => ({ ...prev, [id]: err instanceof Error ? err.message : String(err) }));
-    } finally {
-      setFetchingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    }
+      const res = await apiFetch("/api/environments/" + environment.id + "/fetch", { method: "POST" });
+      if (res.ok) await refreshEnvironments();
+    } catch {}
+    // Whether it succeeded, failed, or 409'd (already running), the backend
+    // state is the truth — sync immediately instead of waiting for the tick.
+    await pollFetchStatus();
   };
 
   const openCreateModal = () => setEnvironmentModal({ mode: "create", editId: null, name: "", url: "", variables: [], color: ENVIRONMENT_COLORS[0].key, branch: "" });
@@ -167,34 +198,41 @@ export default function EnvironmentsPage() {
                     ))}
                   </div>
                 )}
-                {environment.branch && (
-                  <div className="environment-card-repo">
-                    <span className="environment-card-branch">🌿 {environment.branch}</span>
-                    {environment.lastFetchedCommit && (
-                      <span className="environment-card-commit" title={environment.lastFetchedCommit}>
-                        {environment.lastFetchedCommit.slice(0, 7)}
-                      </span>
-                    )}
-                    {environment.hasUpdate && (
-                      <span className="environment-update-warning" title={t("environment_update_available")}>
-                        <WarningIcon />
-                      </span>
-                    )}
-                    <button
-                      className="btn-environment-action environment-fetch-icon-btn"
-                      title={t("btn_fetch_repo")}
-                      disabled={fetchingIds.has(environment.id)}
-                      onClick={() => handleFetch(environment.id)}
-                    >
-                      {fetchingIds.has(environment.id) ? (
-                        <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />
-                      ) : (
-                        <RefreshIcon />
+                {environment.branch && (() => {
+                  const fetchState = fetchStates[environment.branch] || null;
+                  const isFetching = fetchState?.status === "running";
+                  return (
+                    <div className="environment-card-repo">
+                      <span className="environment-card-branch">🌿 {environment.branch}</span>
+                      {environment.lastFetchedCommit && (
+                        <span className="environment-card-commit" title={environment.lastFetchedCommit}>
+                          {environment.lastFetchedCommit.slice(0, 7)}
+                        </span>
                       )}
-                    </button>
-                    {fetchErrors[environment.id] && <span className="environment-fetch-error">{fetchErrors[environment.id]}</span>}
-                  </div>
-                )}
+                      {environment.hasUpdate && (
+                        <span className="environment-update-warning" title={t("environment_update_available")}>
+                          <WarningIcon />
+                        </span>
+                      )}
+                      <button
+                        className="btn-environment-action environment-fetch-icon-btn"
+                        title={t("btn_fetch_repo")}
+                        disabled={isFetching}
+                        onClick={() => handleFetch(environment)}
+                      >
+                        {isFetching ? (
+                          <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />
+                        ) : (
+                          <RefreshIcon />
+                        )}
+                      </button>
+                      {isFetching && <span className="environment-fetch-progress">{t("environment_fetch_in_progress")}</span>}
+                      {fetchState?.status === "error" && fetchState.error && (
+                        <span className="environment-fetch-error">{fetchState.error}</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="environment-card-actions">
                 <button className="btn-environment-action btn-environment-rename" title={t("btn_edit_title")} onClick={() => openEditModal(environment)}>

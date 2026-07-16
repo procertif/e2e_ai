@@ -1,4 +1,4 @@
-const { sanitizeToolUseHistory } = require("./history");
+const { sanitizeToolUseHistory, capOversizedImages } = require("./history");
 const { correctionSystemBlocks } = require("./prompts");
 const { collectToolResults } = require("./toolLoop");
 
@@ -48,6 +48,8 @@ module.exports = function createCorrectionRun({ client, executeTool, registry, e
 				]
 				: userText;
 			history.push({ role: "user", content: userContent });
+			// After the push so a user-attached oversized image is capped too.
+			await capOversizedImages(history);
 
 			const token = await client.getOAuthToken();
 			let continueLoop = true;

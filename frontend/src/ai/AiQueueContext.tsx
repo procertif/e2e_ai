@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, getToken } from "../api";
 
 export interface AiQueueTaskSummary {
   id: number;
@@ -37,6 +37,7 @@ export function AiQueueProvider({ children }: { children: ReactNode }) {
   const [correctionsPaused, setCorrectionsPaused] = useState(false);
 
   const refresh = async () => {
+    if (!getToken()) return; // logged out — provider remounts on login
     try {
       const res = await apiFetch("/api/ai-queue");
       if (res.ok) {

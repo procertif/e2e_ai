@@ -14,6 +14,12 @@ module.exports = function createVersionedRepoController({ versionedRepo }) {
 		}
 	});
 
+	// Live step trace of the current/last sync·push·resolve — polled by the
+	// frontend while its POST is in flight, re-read once after it settles.
+	router.get("/versioned-repo/operation", (req, res) => {
+		res.json(versionedRepo.getLastOperation());
+	});
+
 	router.post("/versioned-repo/sync", async (req, res) => {
 		try {
 			const result = await versionedRepo.sync();

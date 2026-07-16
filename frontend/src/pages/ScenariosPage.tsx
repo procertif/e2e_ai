@@ -4,12 +4,14 @@ import { faMagnifyingGlass, faList, faPlus } from "@fortawesome/free-solid-svg-i
 import { faCopy } from "@fortawesome/free-regular-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
+import { useAiQueue } from "../ai/AiQueueContext";
 import { useEnvironment } from "../environment/EnvironmentContext";
 import { escHtml, fuzzyMatch } from "../utils/format";
 import ScenarioChatPanel from "../scenarios/ScenarioChatPanel";
 import type { Test } from "../types";
 import "../styles/groups.css";
 import "../styles/chat.css";
+import "../styles/campaigns.css";
 import "../styles/corrections.css";
 import "../styles/scenarios.css";
 
@@ -75,8 +77,10 @@ function CopyButton({ text, title, showLabel, labelText }: { text: string; title
 
 export default function ScenariosPage() {
   const { t, ready } = useI18n();
+  const { tasks: aiQueueTasks } = useAiQueue();
   const { environments, selectedId, setSelectedId } = useEnvironment();
   const [scenarios, setScenarios] = useState<ScenarioListItem[]>([]);
+  const [dotCount, setDotCount] = useState(1);
   const [aliases, setAliases] = useState<Map<string, string>>(new Map());
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -96,6 +100,20 @@ export default function ScenariosPage() {
     if (!ready) return;
     refreshList();
   }, [ready]);
+
+  // Same badge machinery as the Corrections list: the global AI queue is the
+  // source of truth, one task per scenario keyed by testname.
+  const scenarioTasks = aiQueueTasks.filter((task) => task.kind === "scenario");
+
+  useEffect(() => {
+    if (scenarioTasks.length === 0) {
+      setDotCount(1);
+      return;
+    }
+    const interval = setInterval(() => setDotCount((d) => (d % 3) + 1), 450);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenarioTasks.length]);
 
   const titles = new Map(scenarios.filter((s) => s.title).map((s) => [s.testname, s.title!]));
   const displayName = (testname: string) => titles.get(testname) || aliases.get(testname) || testname;
@@ -159,18 +177,32 @@ export default function ScenariosPage() {
           </div>
           <div className="panel-body">
             <div id="test-list">
-              {filtered.map((s) => (
-                <div
-                  key={s.testname}
-                  className={"test-item scenario-test-item" + (selected === s.testname ? " selected" : "")}
-                  onClick={() => selectScenario(s.testname)}
-                >
-                  <span className="test-name">{displayName(s.testname)}</span>
-                  <span className={"scenario-link-badge" + (s.hasTest ? " scenario-link-badge--linked" : " scenario-link-badge--unlinked")}>
-                    {s.hasTest ? t("scenario_badge_linked") : t("scenario_badge_unlinked")}
-                  </span>
-                </div>
-              ))}
+              {filtered.map((s) => {
+                const task = scenarioTasks.find((tk) => tk.targetKey === s.testname);
+                const isCurrent = task?.status === "running";
+                const isQueued = task?.status === "queued";
+                const taskEnvName = task ? environments.find((e) => e.id === task.environmentId)?.name || null : null;
+                return (
+                  <div
+                    key={s.testname}
+                    className={"test-item scenario-test-item" + (selected === s.testname ? " selected" : "")}
+                    onClick={() => selectScenario(s.testname)}
+                  >
+                    <span className="test-name">{displayName(s.testname)}</span>
+                    {(isCurrent || isQueued) && (
+                      <div className={"campaign-progress" + (isQueued ? " is-queued" : "")}>
+                        <span className="spinner-border spinner-xs" role="status" />
+                        <span className="campaign-progress-text">{isCurrent ? t("scenario_running_label") : t("scenario_queued_label")}</span>
+                        <span className="campaign-progress-dots">{".".repeat(dotCount)}</span>
+                        {taskEnvName && <span className="correction-task-env">· {taskEnvName}</span>}
+                      </div>
+                    )}
+                    <span className={"scenario-link-badge" + (s.hasTest ? " scenario-link-badge--linked" : " scenario-link-badge--unlinked")}>
+                      {s.hasTest ? t("scenario_badge_linked") : t("scenario_badge_unlinked")}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

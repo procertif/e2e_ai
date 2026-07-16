@@ -1,4 +1,4 @@
-const { sanitizeToolUseHistory } = require("./history");
+const { sanitizeToolUseHistory, capOversizedImages } = require("./history");
 const { scenarioSystemBlocks } = require("./prompts");
 const { SCENARIO_TOOLS } = require("./tools/definitions");
 const { collectToolResults } = require("./toolLoop");
@@ -32,6 +32,8 @@ module.exports = function createScenarioRun({ client, executeTool, registry, env
 				]
 				: userText;
 			history.push({ role: "user", content: userContent });
+			// After the push so a user-attached oversized image is capped too.
+			await capOversizedImages(history);
 
 			const token = await client.getOAuthToken();
 			let continueLoop = true;

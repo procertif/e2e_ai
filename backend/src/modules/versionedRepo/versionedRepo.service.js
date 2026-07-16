@@ -223,30 +223,83 @@ module.exports = function createVersionedRepoService({ VERSIONED_DIR, envLocal }
 		return (await tryGit(isStale ? ["diff", "-R", `origin/${branch}`, "--", file] : ["diff", `origin/${branch}`, "--", file])) || "";
 	}
 
+	// Step-by-step trace of the last sync/push/resolve, polled by the
+	// Synchronisation tab while an operation runs (the POST itself only
+	// resolves at the end) and re-read afterwards to show what happened —
+	// including which exact step failed and the redacted git error.
+	// In-memory on purpose: it describes one server's git working tree.
+	let lastOperation = null;
+
+	function beginOperation(kind) {
+		lastOperation = { kind, status: "running", steps: [], error: null, startedAt: Date.now(), endedAt: null };
+		return lastOperation;
+	}
+
+	function startStep(op, key) {
+		op.steps.push({ key, status: "running" });
+	}
+
+	function endStep(op, meta) {
+		const step = op.steps[op.steps.length - 1];
+		if (step && step.status === "running") Object.assign(step, meta || {}, { status: "done" });
+	}
+
+	function finishOperation(op, status) {
+		op.status = status;
+		op.endedAt = Date.now();
+	}
+
+	function failOperation(op, err) {
+		const step = op.steps[op.steps.length - 1];
+		if (step && step.status === "running") step.status = "error";
+		op.error = err.message;
+		finishOperation(op, "error");
+	}
+
+	function getLastOperation() {
+		return lastOperation;
+	}
+
 	// Commits whatever's on disk (so it's never lost) and merges in the
 	// remote branch if it has moved ahead — the shared first half of both
 	// sync() (stop here) and push() (also publish afterwards). Stops and
 	// reports the conflicting files instead of guessing a resolution.
-	async function syncLocal() {
+	async function syncLocal(op) {
+		startStep(op, "prepare");
 		await ensureRepo();
 		const branch = await detectBranch();
+		endStep(op, { branch });
 
 		const existingConflict = await getConflictState();
 		if (existingConflict) return { conflict: existingConflict, branch };
 
+		startStep(op, "commit");
 		await runGit(["add", "-A"]);
 		const staged = ((await tryGit(["diff", "--cached", "--name-only"])) || "").trim();
 		if (staged) await runGit(["commit", "-m", `Sync from Procertif E2E — ${new Date().toISOString()}`]);
+		endStep(op, { files: staged ? staged.split("\n").length : 0 });
 
-		await tryGit(["fetch", "origin", branch]);
+		startStep(op, "fetch");
+		// A brand-new empty remote has no branch to fetch — that's fine, but a
+		// real failure (network, auth, deleted repo) must surface instead of
+		// being silently swallowed like tryGit used to do.
+		try {
+			await runGit(["fetch", "origin", branch]);
+		} catch (err) {
+			if (!/couldn't find remote ref/i.test(err.message)) throw err;
+		}
 		const hasRemoteBranch = Boolean(await tryGit(["rev-parse", "--verify", `origin/${branch}`]));
-		if (hasRemoteBranch) {
-			const behind = Number(((await tryGit(["rev-list", `HEAD..origin/${branch}`, "--count"])) || "0").trim());
-			if (behind > 0) {
-				await tryGit(["merge", `origin/${branch}`, "--no-edit"]);
-				const conflict = await getConflictState();
-				if (conflict) return { conflict, branch };
-			}
+		const behind = hasRemoteBranch
+			? Number(((await tryGit(["rev-list", `HEAD..origin/${branch}`, "--count"])) || "0").trim())
+			: 0;
+		endStep(op, { behind });
+
+		if (behind > 0) {
+			startStep(op, "merge");
+			await tryGit(["merge", `origin/${branch}`, "--no-edit"]);
+			const conflict = await getConflictState();
+			if (conflict) return { conflict, branch };
+			endStep(op, { commits: behind });
 		}
 
 		return { synced: true, branch };
@@ -257,15 +310,34 @@ module.exports = function createVersionedRepoService({ VERSIONED_DIR, envLocal }
 	// files on disk; getStatus/getDiff's own fetch never touches the working
 	// tree, so browsing the page never mutates local state.
 	async function sync() {
-		return await syncLocal();
+		const op = beginOperation("sync");
+		try {
+			const result = await syncLocal(op);
+			finishOperation(op, result.conflict ? "conflict" : "done");
+			return result;
+		} catch (err) {
+			failOperation(op, err);
+			throw err;
+		}
 	}
 
 	async function push() {
-		const result = await syncLocal();
-		if (result.conflict) return result;
-
-		await runGit(["push", "origin", `HEAD:${result.branch}`]);
-		return { pushed: true, branch: result.branch };
+		const op = beginOperation("push");
+		try {
+			const result = await syncLocal(op);
+			if (result.conflict) {
+				finishOperation(op, "conflict");
+				return result;
+			}
+			startStep(op, "push");
+			await runGit(["push", "origin", `HEAD:${result.branch}`]);
+			endStep(op, { branch: result.branch });
+			finishOperation(op, "done");
+			return { pushed: true, branch: result.branch };
+		} catch (err) {
+			failOperation(op, err);
+			throw err;
+		}
 	}
 
 	// resolution: "local" keeps our version of every conflicting file
@@ -277,16 +349,27 @@ module.exports = function createVersionedRepoService({ VERSIONED_DIR, envLocal }
 		const conflict = await getConflictState();
 		if (!conflict) throw new Error("No merge conflict in progress.");
 		if (resolution !== "local" && resolution !== "remote") throw new Error('resolution must be "local" or "remote".');
-		const branch = await detectBranch();
-		const side = resolution === "remote" ? "--theirs" : "--ours";
-		for (const file of conflict.files) {
-			await runGit(["checkout", side, "--", file]);
-			await runGit(["add", "--", file]);
+		const op = beginOperation("resolve");
+		try {
+			startStep(op, "resolve");
+			const branch = await detectBranch();
+			const side = resolution === "remote" ? "--theirs" : "--ours";
+			for (const file of conflict.files) {
+				await runGit(["checkout", side, "--", file]);
+				await runGit(["add", "--", file]);
+			}
+			await runGit(["commit", "--no-edit"]);
+			endStep(op, { files: conflict.files.length });
+			startStep(op, "push");
+			await runGit(["push", "origin", `HEAD:${branch}`]);
+			endStep(op, { branch });
+			finishOperation(op, "done");
+			return { pushed: true, branch, resolution };
+		} catch (err) {
+			failOperation(op, err);
+			throw err;
 		}
-		await runGit(["commit", "--no-edit"]);
-		await runGit(["push", "origin", `HEAD:${branch}`]);
-		return { pushed: true, branch, resolution };
 	}
 
-	return { isConfigured, getStatus, getDiff, getFileDiff, sync, push, resolveConflict };
+	return { isConfigured, getStatus, getDiff, getFileDiff, sync, push, resolveConflict, getLastOperation };
 };

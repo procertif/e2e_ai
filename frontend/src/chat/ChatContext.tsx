@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { apiFetch, apiStreamUrl } from "../api";
+import { apiFetch, apiStreamUrl, getToken } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { useEnvironment } from "../environment/EnvironmentContext";
 import { useAiQueue } from "../ai/AiQueueContext";
@@ -315,7 +315,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!ready || initialized.current) return;
+    // Skip while logged out — the provider is remounted on login (see
+    // DataProviders in main.tsx), which retries with the fresh token.
+    if (!ready || initialized.current || !getToken()) return;
     initialized.current = true;
     refreshConversations();
     try {

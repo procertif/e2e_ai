@@ -173,3 +173,91 @@
   color: #fca5a5;
   background: rgba(239, 68, 68, 0.12);
 }
+
+/* ── Sync/push operation step trace ── */
+
+.versioning-operation {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.versioning-operation--error {
+  background: #fdf2f2;
+  border-color: #f5c2c7;
+}
+
+.versioning-operation--conflict {
+  background: #fff3cd;
+  border-color: #ffe69c;
+}
+
+.versioning-operation-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #343a40;
+  margin-bottom: 0.5rem;
+}
+
+.versioning-operation--error .versioning-operation-title {
+  color: #b02a37;
+}
+
+.versioning-operation--conflict .versioning-operation-title {
+  color: #997404;
+}
+
+.versioning-operation-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.versioning-operation-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #495057;
+}
+
+.versioning-operation-step-icon {
+  width: 1rem;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.versioning-operation-step.is-done .versioning-operation-step-icon {
+  color: #198754;
+  font-weight: 700;
+}
+
+.versioning-operation-step.is-error {
+  color: #b02a37;
+}
+
+.versioning-operation-step.is-error .versioning-operation-step-icon {
+  color: #dc3545;
+  font-weight: 700;
+}
+
+.versioning-operation-step-detail {
+  color: #868e96;
+  font-size: 0.75rem;
+}
+
+.versioning-operation .versioning-error {
+  margin: 0.5rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

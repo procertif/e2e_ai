@@ -1,4 +1,4 @@
-const { sanitizeToolUseHistory, sanitizeSeedHistory } = require("./history");
+const { sanitizeToolUseHistory, sanitizeSeedHistory, capOversizedImages } = require("./history");
 const { collectToolResults } = require("./toolLoop");
 const { isSafeTestname } = require("../core/safeNames");
 
@@ -114,6 +114,8 @@ module.exports = function createConversationRun({ db, client, executeTool, regis
 				]
 				: message;
 			history.push({ role: "user", content: userContent });
+			// After the push so a user-attached oversized image is capped too.
+			await capOversizedImages(history);
 
 			const token = await client.getOAuthToken();
 			let continueLoop = true;

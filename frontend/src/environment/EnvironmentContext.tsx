@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, getToken } from "../api";
 import type { Environment } from "../types";
 
 const STORAGE_KEY = "procertif_selected_environment_id";
@@ -29,6 +29,9 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Not logged in yet — don't fire a doomed 401. The provider is remounted
+    // on login (see DataProviders in main.tsx), which re-runs this effect.
+    if (!getToken()) return;
     apiFetch("/api/environments")
       .then((r) => r.json())
       .then((data: Environment[]) => setEnvironments(data))
