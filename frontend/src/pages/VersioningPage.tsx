@@ -209,7 +209,7 @@ export default function VersioningPage() {
     <>
       <div className="app-topbar">
         <h1>{t("versioning_page_title")}</h1>
-        <span className="badge-env">SYNC</span>
+        <span className="badge-env">BACKUP</span>
       </div>
 
       <div className="app-content" style={{ overflowY: "auto", display: "block" }}>

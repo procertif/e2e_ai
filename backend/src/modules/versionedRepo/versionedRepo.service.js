@@ -126,6 +126,12 @@ module.exports = function createVersionedRepoService({ VERSIONED_DIR, envLocal }
 					((await tryGit(["diff", mergeBase, "--name-only", "--", "."])) || "").split("\n").filter(Boolean)
 				);
 				entries = entries.map((e) => (remoteChanged.has(e.file) && !localChanged.has(e.file) ? { ...e, status: "stale" } : e));
+			} else {
+				// No common ancestor (fresh local repo, before its first update
+				// merges the histories): a file that only exists on the remote
+				// was never deleted locally — it just hasn't been fetched yet.
+				// Without this it reads "Supprimé", which is exactly backwards.
+				entries = entries.map((e) => (e.status === "D" ? { ...e, status: "stale" } : e));
 			}
 		}
 		return { branch, hasRemoteBranch, entries };
@@ -289,16 +295,41 @@ module.exports = function createVersionedRepoService({ VERSIONED_DIR, envLocal }
 			if (!/couldn't find remote ref/i.test(err.message)) throw err;
 		}
 		const hasRemoteBranch = Boolean(await tryGit(["rev-parse", "--verify", `origin/${branch}`]));
-		const behind = hasRemoteBranch
+		const hasHead = Boolean(await tryGit(["rev-parse", "--verify", "HEAD"]));
+
+		// Fresh server with an empty data/versioned/: nothing was committed
+		// above, so there's no HEAD at all — adopt the remote branch outright,
+		// which is what populates the working tree with every remote file.
+		if (hasRemoteBranch && !hasHead) {
+			endStep(op, { behind: 0 });
+			startStep(op, "merge");
+			await runGit(["checkout", "-B", branch, `origin/${branch}`]);
+			const commits = Number(((await tryGit(["rev-list", "HEAD", "--count"])) || "0").trim());
+			endStep(op, { commits });
+			return { synced: true, branch };
+		}
+
+		const behind = hasRemoteBranch && hasHead
 			? Number(((await tryGit(["rev-list", `HEAD..origin/${branch}`, "--count"])) || "0").trim())
 			: 0;
 		endStep(op, { behind });
 
 		if (behind > 0) {
 			startStep(op, "merge");
-			await tryGit(["merge", `origin/${branch}`, "--no-edit"]);
-			const conflict = await getConflictState();
-			if (conflict) return { conflict, branch };
+			// --allow-unrelated-histories: a fresh server's local repo starts as
+			// its own root commit with no common ancestor with the remote — the
+			// default merge refuses that ("refusing to merge unrelated
+			// histories") and used to be silently swallowed by tryGit, so a new
+			// install downloaded nothing and showed every remote file as
+			// deleted. Real merge errors now surface; a conflict is detected
+			// via MERGE_HEAD and reported for manual resolution as before.
+			try {
+				await runGit(["merge", `origin/${branch}`, "--no-edit", "--allow-unrelated-histories"]);
+			} catch (err) {
+				const conflict = await getConflictState();
+				if (conflict) return { conflict, branch };
+				throw err;
+			}
 			endStep(op, { commits: behind });
 		}
 
