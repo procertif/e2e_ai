@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
-import { groupColor, badgeClass, fuzzyMatch } from "../utils/format";
+import { groupColor, fuzzyMatch } from "../utils/format";
 import type { Test, Group } from "../types";
 import "../styles/groups.css";
 
@@ -285,7 +285,6 @@ export default function GroupsPage() {
                         {displayName}
                         {tst.alias && <span className="test-alias-hint" title={tst.filename}> ({tst.filename.replace(".spec.ts", "")})</span>}
                       </p>
-                      <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
                     </div>
                     <div className="avail-item-actions">
                       <button
@@ -392,15 +391,16 @@ export default function GroupsPage() {
                             <div className="group-test-row" key={fn}>
                               <div className="avail-item-info">
                                 <p className="test-name">{name}</p>
-                                {tst && <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>}
                               </div>
-                              <button
-                                className="btn-remove-queue chip-remove"
-                                title={t("btn_remove_from_group_title")}
-                                onClick={() => removeTestFromGroup(g.id, fn)}
-                              >
-                                ×
-                              </button>
+                              <div className="group-test-row-right">
+                                <button
+                                  className="btn-remove-queue chip-remove"
+                                  title={t("btn_remove_from_group_title")}
+                                  onClick={() => removeTestFromGroup(g.id, fn)}
+                                >
+                                  ×
+                                </button>
+                              </div>
                             </div>
                           );
                         })
@@ -613,7 +613,6 @@ export default function GroupsPage() {
                     <p className="test-name" style={{ fontSize: "0.95rem" }}>
                       {tst.alias || tst.name}
                     </p>
-                    <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
                   </div>
                 </label>
               ))}

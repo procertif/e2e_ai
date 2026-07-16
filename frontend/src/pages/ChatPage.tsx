@@ -1,109 +1,138 @@
 import { useEffect, useState } from "react";
 import { marked } from "marked";
 import { useI18n } from "../i18n/I18nContext";
-import { shortPath, toolPillClass, type ToolInput } from "../utils/toolPills";
+import { toolPillClass, type ToolInput } from "../utils/toolPills";
+import { toolLabel, readFileLineInfo, findSelectorMatches, type EntityTitles } from "../utils/toolNarration";
+import { useEntityTitles } from "../utils/useEntityTitles";
+import { useStickyScroll } from "../utils/useStickyScroll";
 import { environmentColorHex } from "../utils/environmentColors";
-import { useChat, type AssistantItem, type PendingItem, type ToolCall } from "../chat/ChatContext";
+import { RepoUpdateBanner, RepoUpdateIcon } from "../environment/RepoUpdateBanner";
+import { AiQueuePausedBanner } from "../ai/AiQueuePausedBanner";
+import { useChat, type AssistantItem, type PendingItem } from "../chat/ChatContext";
 import { ToolDiffView } from "../chat/ToolDiff";
 import "../styles/chat.css";
 import "../styles/environments.css";
 
-const DIFF_CAPABLE = new Set(["write", "edit"]);
+const DIFF_CAPABLE = new Set(["writetestfile"]);
 
 marked.setOptions({ breaks: true, gfm: true });
 
-function formatToolLabel(name: string, input: ToolInput) {
-  const n = name.toLowerCase();
-  if (n === "read" && input?.file_path) return "📄 " + shortPath(input.file_path as string);
-  if (n === "readimage" && input?.file_path) return "🖼 " + shortPath(input.file_path as string);
-  if (n === "webfetch" && input?.url) return "🌐 " + (input.url as string).slice(0, 50) + ((input.url as string).length > 50 ? "…" : "");
-  if (n === "write" && input?.file_path) return "✏️ " + shortPath(input.file_path as string);
-  if (n === "edit" && input?.file_path) return "✏️ " + shortPath(input.file_path as string);
-  if (n === "bash" && input?.command) return "$ " + (input.command as string).slice(0, 48) + ((input.command as string).length > 48 ? "…" : "");
-  if (input?.path) return name + ": " + shortPath(input.path as string);
-  if (input?.query || input?.pattern) return "🔍 " + ((input.query || input.pattern) as string).slice(0, 40);
-  return name;
-}
-
-function ToolPill({ name, input, expandable, expanded, onClick }: ToolCall & { expandable: boolean; expanded: boolean; onClick?: () => void }) {
+function ToolPill({
+  name,
+  label,
+  input,
+  expandable,
+  expanded,
+  spinning,
+  suffix,
+  onClick,
+}: {
+  name: string;
+  label: string;
+  input: ToolInput;
+  expandable: boolean;
+  expanded: boolean;
+  spinning?: boolean;
+  suffix?: string;
+  onClick?: () => void;
+}) {
   return (
     <span
       className={`tool-pill tool-pill--${toolPillClass(name)}${expandable ? " tool-pill--expandable" : ""}${expanded ? " tool-pill--open" : ""}`}
       title={JSON.stringify(input, null, 2)}
       onClick={onClick}
     >
-      {formatToolLabel(name, input)}
+      {spinning && <span className="spinner-border spinner-xs tool-pill-spinner" role="status" aria-hidden="true" />}
+      {label}
+      {suffix && <span className="tool-pill-suffix"> — {suffix}</span>}
       {expandable && <span className="tool-pill-chevron">{expanded ? "▾" : "▸"}</span>}
     </span>
   );
 }
 
 // Renders the committed blocks of an assistant message, plus trailing live
-// (not-yet-committed) text with a typing cursor while streaming. Write/Edit
-// tool calls are shown expanded with a live diff by default (collapsedTools
-// tracks the ones the user manually folded), so edits are visible as Claude
-// makes them rather than only as an opaque pill.
+// (not-yet-committed) text with a typing cursor while streaming. Each tool
+// call and each paragraph gets its own line — no more side-by-side pill
+// grouping. Write/Edit tool calls are shown expanded with a live diff by
+// default (collapsedTools tracks the ones the user manually folded); RunTest
+// shows its console output, FindSelector its matched lines, ReadDataFile a
+// line-count once the result is back, all inline rather than an opaque pill.
 function AssistantContent({
   item,
   msgIdx,
   collapsedTools,
   onToggleTool,
+  queuePosition,
+  titles,
 }: {
   item: AssistantItem;
   msgIdx: number;
   collapsedTools: Set<string>;
   onToggleTool: (key: string) => void;
+  queuePosition?: number | null;
+  titles: EntityTitles;
 }) {
+  const { t } = useI18n();
   const blocks = item.blocks || [];
-  let pillGroup: { name: string; input: ToolInput; bIdx: number }[] = [];
   const rendered: React.ReactNode[] = [];
   let key = 0;
-  const flushPills = () => {
-    if (pillGroup.length > 0) {
-      const group = pillGroup;
+
+  blocks.forEach((b, bIdx) => {
+    const isLast = bIdx === blocks.length - 1;
+    const spinning = isLast && !item.done && !item.liveText;
+
+    if (b.type === "tool") {
+      const n = b.name.toLowerCase();
+      const expandable = DIFF_CAPABLE.has(n);
+      const diffKey = `${msgIdx}-${bIdx}`;
+      const isOpen = expandable && !collapsedTools.has(diffKey);
+      const lineInfo = n === "readdatafile" ? readFileLineInfo(b.input, b.result) : null;
+      const matches = n === "findselector" ? findSelectorMatches(b.result) : [];
+
       rendered.push(
-        <div className="tool-pills" key={"pills-" + key++}>
-          {group.map((b, i) => {
-            const expandable = DIFF_CAPABLE.has(b.name.toLowerCase());
-            const diffKey = `${msgIdx}-${b.bIdx}`;
-            const isOpen = expandable && !collapsedTools.has(diffKey);
-            return (
-              <ToolPill
-                name={b.name}
-                input={b.input}
-                key={i}
-                expandable={expandable}
-                expanded={isOpen}
-                onClick={expandable ? () => onToggleTool(diffKey) : undefined}
-              />
-            );
-          })}
+        <div className="tool-row" key={"tool-" + key++}>
+          <ToolPill
+            name={b.name}
+            label={toolLabel(b.name, b.input, titles)}
+            input={b.input}
+            expandable={expandable}
+            expanded={isOpen}
+            spinning={spinning}
+            suffix={lineInfo || undefined}
+            onClick={expandable ? () => onToggleTool(diffKey) : undefined}
+          />
+          {expandable && isOpen && <ToolDiffView name={b.name} input={b.input} />}
+          {n === "runtest" && b.result && <pre className="tool-console">{b.result}</pre>}
+          {matches.length > 0 && (
+            <div className="tool-matches">
+              {matches.map((m, i) => (
+                <div className="tool-match-row" key={i}>
+                  {m.file} — {m.lines.length === 1 ? `ligne ${m.lines[0]}` : `lignes ${m.lines.join(", ")}`}
+                </div>
+              ))}
+            </div>
+          )}
         </div>,
       );
-      for (const b of group) {
-        const expandable = DIFF_CAPABLE.has(b.name.toLowerCase());
-        const diffKey = `${msgIdx}-${b.bIdx}`;
-        if (expandable && !collapsedTools.has(diffKey)) {
-          rendered.push(<ToolDiffView name={b.name} input={b.input} key={"diff-" + diffKey} />);
-        }
-      }
-      pillGroup = [];
-    }
-  };
-  blocks.forEach((b, bIdx) => {
-    if (b.type === "tool") {
-      pillGroup.push({ name: b.name, input: b.input, bIdx });
-    } else {
-      flushPills();
-      if (b.text) {
-        rendered.push(<div className="msg-content" key={"text-" + key++} dangerouslySetInnerHTML={{ __html: marked.parse(b.text) as string }} />);
-      }
+    } else if (b.type === "image") {
+      rendered.push(
+        <img src={`data:${b.media_type};base64,${b.data}`} className="msg-image msg-tool-image" key={"img-" + key++} alt="" />,
+      );
+    } else if (b.text) {
+      rendered.push(<div className="msg-content" key={"text-" + key++} dangerouslySetInnerHTML={{ __html: marked.parse(b.text) as string }} />);
     }
   });
-  flushPills();
 
   const showThinking = blocks.length === 0 && !item.liveText && !item.done;
   if (showThinking) {
+    if (queuePosition != null) {
+      return (
+        <div className="chat-queued-hint">
+          <span className="spinner-border spinner-xs" role="status" aria-hidden="true" />
+          {t("chat_queued_hint").replace("{n}", String(queuePosition + 1))}
+        </div>
+      );
+    }
     return (
       <div className="thinking-dots">
         <span></span>
@@ -176,8 +205,19 @@ function PendingCard({
   );
 }
 
+function fmtConversationDate(iso: string, lang: string) {
+  const d = new Date(iso);
+  const locale = lang === "fr" ? "fr-FR" : "en-US";
+  return (
+    d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" }) +
+    " " +
+    d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+  );
+}
+
 export default function ChatPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const titles = useEntityTitles();
   const [collapsedTools, setCollapsedTools] = useState<Set<string>>(new Set());
   const toggleTool = (key: string) => {
     setCollapsedTools((prev) => {
@@ -190,6 +230,7 @@ export default function ChatPage() {
   const {
     timeline,
     isStreaming,
+    queuePosition,
     inputValue,
     pendingImages,
     setPendingImages,
@@ -204,6 +245,7 @@ export default function ChatPage() {
     inputRef,
     imageInputRef,
     handleInstructionsChange,
+    resetInstructions,
     addFiles,
     handleInputChange,
     handleInputKeyDown,
@@ -223,6 +265,9 @@ export default function ChatPage() {
     selectedId,
     setSelectedId,
     selectedEnvironment,
+    sessionId,
+    conversations,
+    loadConversation,
   } = useChat();
 
   // Autofocus only when this route is actually visited — the chat state
@@ -231,11 +276,10 @@ export default function ChatPage() {
     inputRef.current?.focus();
   }, [inputRef]);
 
-  useEffect(() => {
-    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [timeline, messagesRef]);
+  useStickyScroll(timeline, messagesRef);
 
   return (
+    <div className="chat-with-history">
     <div className="chat-layout">
       <div className="chat-header">
         <div className="chat-header-info">
@@ -262,6 +306,7 @@ export default function ChatPage() {
                   </option>
                 ))}
               </select>
+              <RepoUpdateIcon environment={selectedEnvironment} />
             </div>
             {selectedId == null && <span className="target-environment-hint">{t("target_environment_required_hint")}</span>}
           </div>
@@ -272,6 +317,14 @@ export default function ChatPage() {
             {t("btn_new_chat")}
           </button>
         </div>
+      </div>
+
+      <div style={{ padding: selectedEnvironment?.hasUpdate ? "0.75rem 2rem 0" : 0 }}>
+        <RepoUpdateBanner environment={selectedEnvironment} />
+      </div>
+
+      <div style={{ padding: "0 2rem" }}>
+        <AiQueuePausedBanner />
       </div>
 
       <div className="chat-messages" ref={messagesRef}>
@@ -304,10 +357,18 @@ export default function ChatPage() {
             );
           }
           if (item.kind === "assistant") {
+            const isLast = idx === timeline.length - 1;
             return (
               <div className="chat-message chat-message--assistant" key={idx}>
                 <div className="msg-bubble msg-bubble--assistant">
-                  <AssistantContent item={item} msgIdx={idx} collapsedTools={collapsedTools} onToggleTool={toggleTool} />
+                  <AssistantContent
+                    item={item}
+                    msgIdx={idx}
+                    collapsedTools={collapsedTools}
+                    onToggleTool={toggleTool}
+                    queuePosition={isLast ? queuePosition : null}
+                    titles={titles}
+                  />
                 </div>
               </div>
             );
@@ -348,7 +409,12 @@ export default function ChatPage() {
               value={instructions}
               onChange={handleInstructionsChange}
             />
-            <p className="instructions-hint">{t("instructions_hint")}</p>
+            <div className="d-flex align-items-center justify-content-between">
+              <p className="instructions-hint">{t("instructions_hint")}</p>
+              <button className="btn btn-sm btn-outline-secondary" onClick={resetInstructions}>
+                {t("btn_reset_instructions")}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -426,6 +492,31 @@ export default function ChatPage() {
         </div>
         <p className="chat-hint">{t("chat_input_hint")}</p>
       </div>
+    </div>
+
+    <aside className="chat-history-panel">
+      <div className="chat-history-header">
+        <span>{t("chat_history_title")}</span>
+        <button className="btn btn-sm btn-outline-secondary" onClick={resetChat}>
+          {t("btn_new_chat")}
+        </button>
+      </div>
+      <div className="chat-history-list">
+        {conversations.length === 0 && <p className="chat-history-empty">{t("chat_history_empty")}</p>}
+        {conversations.map((c) => (
+          <button
+            key={c.conversationId}
+            className={"chat-history-item" + (c.latestRunId === sessionId ? " active" : "")}
+            onClick={() => loadConversation(c.latestChatLogId)}
+          >
+            <span className="chat-history-item-title">{c.title || t("chat_history_untitled")}</span>
+            <span className="chat-history-item-meta">
+              {fmtConversationDate(c.updatedAt, lang)} · {c.messageCount} {c.messageCount > 1 ? t("chat_history_messages_plural") : t("chat_history_messages_singular")}
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
 
       {saveModal && (
         <div className="save-modal-backdrop" style={{ display: "flex" }} onClick={(e) => e.target === e.currentTarget && closeSaveModal()}>

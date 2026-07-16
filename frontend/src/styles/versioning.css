@@ -1,0 +1,175 @@
+.versioning-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.versioning-status-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.versioning-error {
+  font-size: 0.82rem;
+  color: #dc3545;
+  margin-bottom: 0.75rem;
+}
+
+.versioning-conflict-banner {
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.versioning-conflict-banner p {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #997404;
+}
+
+.versioning-conflict-files {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #6c757d;
+}
+
+.versioning-conflict-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.versioning-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+}
+
+.versioning-group {
+  margin-bottom: 1.25rem;
+}
+
+.versioning-group-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c757d;
+  margin: 0 0 0.4rem;
+}
+
+.versioning-file-list {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.versioning-file-row {
+  border-bottom: 1px solid #e9ecef;
+}
+
+.versioning-file-row:last-child {
+  border-bottom: none;
+}
+
+.versioning-file-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: none;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.versioning-file-header:hover {
+  background: #f8f9fa;
+}
+
+.versioning-file-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.versioning-file-status--A { background: #d1e7dd; color: #198754; }
+.versioning-file-status--M { background: #cfe2ff; color: #0d6efd; }
+.versioning-file-status--D { background: #f8d7da; color: #dc3545; }
+.versioning-file-status--stale { background: #e2e3e5; color: #41464b; }
+
+.versioning-stale-banner {
+  background: #cfe2ff;
+  border: 1px solid #9ec5fe;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #084298;
+}
+
+.versioning-file-name {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #212529;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.versioning-file-chevron {
+  color: #adb5bd;
+  flex-shrink: 0;
+}
+
+.versioning-diff {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.versioning-diff-line {
+  white-space: pre;
+  color: #cbd5e1;
+}
+
+.versioning-diff-line--file {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.versioning-diff-line--hunk {
+  color: #60a5fa;
+}
+
+.versioning-diff-line--add {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.versioning-diff-line--del {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+}

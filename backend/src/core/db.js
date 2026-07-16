@@ -1,14 +1,15 @@
 const { execSync } = require("child_process");
+const { BACKEND_DIR } = require("../config/paths");
 
 if (!process.env.DATABASE_URL) {
 	process.env.DATABASE_URL = "file:../../data/app.db";
 }
 
 // Creates the SQLite file (if missing) and applies any pending migrations —
-// runs on every boot so `node server.js` alone is enough, no manual
+// runs on every boot so `node src/server.js` alone is enough, no manual
 // `prisma migrate deploy` step required.
 try {
-	execSync("npx prisma migrate deploy", { cwd: __dirname, env: process.env, stdio: "inherit" });
+	execSync("npx prisma migrate deploy", { cwd: BACKEND_DIR, env: process.env, stdio: "inherit" });
 } catch (err) {
 	console.error("[db] Migration failed:", err.message);
 	process.exit(1);
@@ -16,6 +17,4 @@ try {
 
 const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
-
-module.exports = prisma;
+module.exports = new PrismaClient();

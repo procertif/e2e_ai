@@ -4,6 +4,7 @@ import { apiFetch, apiStreamUrl } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import { escHtml, fuzzyMatch } from "../utils/format";
 import { formatToolLabel, toolPillClass, type ToolInput } from "../utils/toolPills";
+import { useStickyScroll } from "../utils/useStickyScroll";
 import type { Test, ScenarioAction, ScenarioData } from "../types";
 import "../styles/groups.css";
 import "../styles/chat.css";
@@ -105,7 +106,7 @@ export default function ScenariosPage() {
   const [drawerStreaming, setDrawerStreaming] = useState(false);
   const [drawerInput, setDrawerInput] = useState("");
   const drawerSessionId = useRef<string | null>(null);
-  const messagesRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useStickyScroll<HTMLDivElement>(drawerMessages);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -115,10 +116,6 @@ export default function ScenariosPage() {
       setAllTests(await res.json());
     })();
   }, [ready]);
-
-  useEffect(() => {
-    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [drawerMessages]);
 
   const filteredTests = allTests.filter((tst) => fuzzyMatch(tst.alias || tst.name, query));
 

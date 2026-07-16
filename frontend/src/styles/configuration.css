@@ -1,0 +1,94 @@
+.config-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+}
+
+.config-intro {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin: 0 0 1.25rem;
+  max-width: 720px;
+}
+
+.config-prompt {
+  margin-bottom: 1.5rem;
+}
+
+.config-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.config-prompt-header h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.config-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.config-badge--default {
+  background: #e9ecef;
+  color: #6c757d;
+}
+
+.config-badge--custom {
+  background: #cfe2ff;
+  color: #084298;
+}
+
+.config-prompt-hint {
+  font-size: 0.78rem;
+  color: #6c757d;
+  margin: 0 0 0.5rem;
+}
+
+.config-prompt-textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #212529;
+}
+
+.config-prompt-textarea:focus {
+  outline: none;
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 2rem;
+}
+
+.config-saved {
+  font-size: 0.82rem;
+  color: #198754;
+}
+
+.config-error {
+  font-size: 0.82rem;
+  color: #dc3545;
+}

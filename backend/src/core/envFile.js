@@ -1,9 +1,4 @@
-const jwt = require("jsonwebtoken");
-const { execSync } = require("child_process");
-
-// Charger l'env
 const fs = require("fs");
-const path = require("path");
 
 function parseEnvFile(filePath) {
 	try {
@@ -21,7 +16,4 @@ function parseEnvFile(filePath) {
 	}
 }
 
-const envLocal = parseEnvFile(path.join(__dirname, "..", ".env"));
-const JWT_SECRET = envLocal.JWT_PRIVATE_KEY || process.env.JWT_PRIVATE_KEY;
-const token = jwt.sign({}, JWT_SECRET, { expiresIn: "12h" });
-console.log(token);
+module.exports = { parseEnvFile };

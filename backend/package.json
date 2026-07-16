@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "start": "node server.js",
-    "db:migrate": "DATABASE_URL=\"file:../../data/app.db\" prisma migrate dev"
+    "start": "node src/server.js",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "db:migrate": "DATABASE_URL=\"file:../../data/app.db\" prisma migrate dev",
+    "gen:token": "node scripts/gen_token.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

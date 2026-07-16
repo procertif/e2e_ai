@@ -10,6 +10,7 @@ services:
       - ./backend:/app/backend
       - ./playwright.config.ts:/app/playwright.config.ts
       - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./src:/app/src
       - ./data:/app/data
       - ./.env:/app/.env
       - /home/procertif/www:/home/procertif/www:ro

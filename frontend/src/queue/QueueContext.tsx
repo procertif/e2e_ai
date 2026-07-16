@@ -1,7 +1,7 @@
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import { apiFetch, apiStreamUrl } from "../api";
 import { useI18n } from "../i18n/I18nContext";
-import { useSelectedEnvironment } from "../hooks/useSelectedEnvironment";
+import { useEnvironment } from "../environment/EnvironmentContext";
 import { stripAnsi, filenameToFolder, extractError } from "../utils/format";
 import type { Test, ScenarioAction } from "../types";
 
@@ -32,13 +32,14 @@ interface QueueContextValue {
   runQueue: () => Promise<void>;
   resetQueue: () => void;
   isAnyRunning: boolean;
+  createCampaign: (title?: string) => Promise<void>;
 }
 
 const QueueContext = createContext<QueueContextValue | null>(null);
 
 export function QueueProvider({ children }: { children: ReactNode }) {
   const { t } = useI18n();
-  const { selectedEnvironment } = useSelectedEnvironment();
+  const { selectedEnvironment } = useEnvironment();
   const [queue, setQueue] = useState<Test[]>(() => {
     // Filenames are restored here; TestsPage backfills the full Test objects
     // once /api/tests resolves (this only needs to survive tab switches, not
@@ -123,7 +124,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         try {
           const res = await apiFetch("/api/run/" + encodeURIComponent(test.filename), {
             method: "POST",
-            body: JSON.stringify({ baseUrl: selectedEnvironment?.url }),
+            body: JSON.stringify({ baseUrl: selectedEnvironment?.url, environmentId: selectedEnvironment?.id ?? null }),
           });
           const data = await res.json();
           runId = data.runId;
@@ -218,7 +219,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
   };
 
   const runQueue = async () => {
-    const sessionTests = [...queue];
+    const sessionTests = queue;
     if (sessionTests.length === 0) return;
     const startTime = Date.now();
     for (const tst of sessionTests) {
@@ -228,6 +229,20 @@ export function QueueProvider({ children }: { children: ReactNode }) {
   };
 
   const isAnyRunning = queue.some((tst) => statusRef.current[tst.filename] === "running");
+
+  const createCampaign = async (title?: string) => {
+    if (queue.length === 0) return;
+    await apiFetch("/api/campaigns", {
+      method: "POST",
+      body: JSON.stringify({
+        title: title?.trim() || null,
+        environmentId: selectedEnvironment?.id ?? null,
+        environmentName: selectedEnvironment?.name ?? null,
+        durationMs: null,
+        tests: queue.map((tst) => ({ filename: tst.filename, status: statusRef.current[tst.filename] || "idle" })),
+      }),
+    }).catch(() => {});
+  };
 
   const value: QueueContextValue = {
     queue,
@@ -243,6 +258,7 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     runQueue,
     resetQueue,
     isAnyRunning,
+    createCampaign,
   };
 
   return <QueueContext.Provider value={value}>{children}</QueueContext.Provider>;

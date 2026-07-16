@@ -77,11 +77,71 @@
   word-break: break-all;
 }
 
-.environment-card-comment {
+.environment-card-variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.environment-card-variable {
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #495057;
+  background: #f1f3f5;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+
+.environment-variables-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.environment-variable-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr auto;
+  gap: 0.4rem;
+  align-items: start;
+}
+
+.environment-variable-row input {
   font-size: 0.82rem;
+}
+
+.environment-variable-row-header {
+  font-size: 0.72rem;
+  font-weight: 600;
   color: #6c757d;
-  margin-top: 0.25rem;
-  white-space: pre-wrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.environment-variable-row .btn-remove-variable {
+  background: none;
+  border: none;
+  color: #adb5bd;
+  cursor: pointer;
+  padding: 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.environment-variable-row .btn-remove-variable:hover {
+  color: #dc3545;
+  background: #fce8e8;
+}
+
+.environment-variables-empty {
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.environment-variable-key.is-invalid {
+  border-color: #dc3545;
 }
 
 .environment-card-actions {
@@ -144,4 +204,75 @@
   margin-top: 0;
   width: 8px;
   height: 8px;
+}
+
+.environment-card-repo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.environment-card-branch {
+  font-size: 0.78rem;
+  color: #495057;
+}
+
+.environment-card-commit {
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #9ca3af;
+  background: #f1f3f5;
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+}
+
+.environment-update-warning {
+  display: flex;
+  align-items: center;
+  color: #997404;
+  cursor: help;
+}
+
+.environment-fetch-icon-btn {
+  color: #6c757d;
+}
+
+.environment-fetch-icon-btn:hover {
+  color: #0d6efd;
+  background: #e8f0fe;
+}
+
+.environment-fetch-error {
+  font-size: 0.72rem;
+  color: #dc3545;
+  flex-basis: 100%;
+}
+
+.repo-update-banner {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: #997404;
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  margin-bottom: 0.75rem;
+  text-decoration: none;
+}
+
+.repo-update-banner:hover {
+  text-decoration: underline;
+}
+
+.repo-update-icon {
+  display: flex;
+  align-items: center;
+  color: #997404;
+  cursor: help;
+}
+
+.repo-update-icon:hover {
+  color: #7a5c03;
 }

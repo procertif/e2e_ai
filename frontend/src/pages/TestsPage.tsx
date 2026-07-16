@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
-import { GROUP_COLORS, badgeClass, fuzzyMatch, formatDuration } from "../utils/format";
+import { GROUP_COLORS, fuzzyMatch, formatDuration } from "../utils/format";
 import { environmentColorHex } from "../utils/environmentColors";
-import { useSelectedEnvironment } from "../hooks/useSelectedEnvironment";
+import { useEnvironment } from "../environment/EnvironmentContext";
+import { RepoUpdateBanner, RepoUpdateIcon } from "../environment/RepoUpdateBanner";
+import { OutputBlock } from "../components/OutputBlock";
 import { useQueue } from "../queue/QueueContext";
+import { useCampaignQueue } from "../campaigns/CampaignQueueContext";
 import type { Test, Group } from "../types";
 import "../styles/groups.css";
 import "../styles/environments.css";
@@ -30,7 +33,7 @@ function getDragAfterElement(container: HTMLElement, y: number) {
 
 export default function TestsPage() {
   const { t, ready } = useI18n();
-  const { environments, selectedId, setSelectedId, selectedEnvironment } = useSelectedEnvironment();
+  const { environments, environmentsLoaded, selectedId, setSelectedId, selectedEnvironment } = useEnvironment();
   const {
     queue,
     setQueue,
@@ -44,13 +47,18 @@ export default function TestsPage() {
     runQueue,
     resetQueue,
     isAnyRunning,
+    createCampaign,
   } = useQueue();
+  const { isBusy: campaignsBusy } = useCampaignQueue();
   const [allTests, setAllTests] = useState<Test[]>([]);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [activeTab, setActiveTab] = useState<"tests" | "groups">("tests");
   const [query, setQuery] = useState("");
   const [draggingFilename, setDraggingFilename] = useState<string | null>(null);
   const [copiedFilename, setCopiedFilename] = useState<string | null>(null);
+  const [campaignCreated, setCampaignCreated] = useState(false);
+  const [campaignModalOpen, setCampaignModalOpen] = useState(false);
+  const [campaignTitle, setCampaignTitle] = useState("");
 
   const queueListRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
@@ -79,25 +87,20 @@ export default function TestsPage() {
 
   const queueSet = new Set(queue.map((tst) => tst.filename));
 
-  const environmentBadge = (tst: Test) => {
-    if (!tst.environmentName) {
-      return <span className="test-badge-environment">{t("environment_unassigned")}</span>;
-    }
-    const env = environments.find((e) => e.id === tst.environmentId);
-    return (
-      <span className="test-badge-environment">
-        {env && <span className="environment-color-dot" style={{ background: environmentColorHex(env.color) }} />}
-        {tst.environmentName}
-      </span>
-    );
-  };
-
   const copyOutput = async (filename: string) => {
     try {
       await navigator.clipboard.writeText(outputRef.current[filename] || "");
       setCopiedFilename(filename);
       setTimeout(() => setCopiedFilename((f) => (f === filename ? null : f)), 1500);
     } catch {}
+  };
+
+  const handleCreateCampaign = async () => {
+    setCampaignModalOpen(false);
+    await createCampaign(campaignTitle);
+    setCampaignTitle("");
+    setCampaignCreated(true);
+    setTimeout(() => setCampaignCreated(false), 1500);
   };
 
   // ── Drag & drop (queue reorder) ──
@@ -157,8 +160,24 @@ export default function TestsPage() {
     queueLabel += ` · ~${formatDuration(totalMs)}${partial}`;
   }
 
+  if (environmentsLoaded && environments.length === 0) {
+    return (
+      <div className="app-content">
+        <div className="groups-tab-empty no-environment-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16" style={{ opacity: 0.25 }}>
+            <path d="M.5 3l.04.87a1.99 1.99 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2zm5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19c-.24 0-.47.042-.683.12L1.5 2.98a1 1 0 0 1 1-.98h3.672z" />
+          </svg>
+          <p>{t("no_environment_title")}</p>
+          <p>{t("no_environment_message")}</p>
+          <a href="/environments">{t("no_environment_cta")}</a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-content">
+      <RepoUpdateBanner environment={selectedEnvironment} />
       <div className="target-environment-bar">
         <span className="environment-color-dot" style={{ background: selectedEnvironment ? environmentColorHex(selectedEnvironment.color) : "#ced4da" }} />
         <label className="target-environment-label" htmlFor="target-environment-select">
@@ -168,15 +187,15 @@ export default function TestsPage() {
           id="target-environment-select"
           className="form-select form-select-sm target-environment-select"
           value={selectedId ?? ""}
-          onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => setSelectedId(Number(e.target.value))}
         >
-          <option value="">{t("target_environment_none_option")}</option>
           {environments.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
             </option>
           ))}
         </select>
+        <RepoUpdateIcon environment={selectedEnvironment} />
       </div>
       <div className="panels-layout">
         <div className="panel panel-available">
@@ -223,8 +242,6 @@ export default function TestsPage() {
                     <div className={"avail-item" + (isQueued ? " is-queued" : "")} key={tst.filename}>
                       <div className="avail-item-info">
                         <p className="test-name">{tst.alias || tst.name}</p>
-                        <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
-                        {environmentBadge(tst)}
                       </div>
                       {isQueued ? (
                         <button className="btn-remove-avail" title={t("btn_remove_from_queue_title")} onClick={() => removeFromQueue(tst.filename)}>
@@ -257,7 +274,7 @@ export default function TestsPage() {
                 const col = GROUP_COLORS[realIdx % GROUP_COLORS.length];
                 const knownTests = g.tests.filter((fn) => allTests.some((tst) => tst.filename === fn));
                 const alreadyQueued = knownTests.filter((fn) => queueSet.has(fn)).length;
-                const addable = knownTests.length - alreadyQueued;
+                const addable = knownTests.filter((fn) => !queueSet.has(fn)).length;
                 return (
                   <div className="group-queue-item" key={g.id}>
                     <div className="group-queue-info">
@@ -289,7 +306,12 @@ export default function TestsPage() {
           <div className="panel-header panel-header-row">
             <div className="d-flex align-items-center gap-3">
               <h2 className="panel-title">{t("panel_queue_title")}</h2>
-              <button className="btn btn-primary btn-sm btn-run-all" onClick={runQueue}>
+              <button
+                className="btn btn-primary btn-sm btn-run-all"
+                disabled={campaignsBusy}
+                title={campaignsBusy ? t("campaigns_busy_message") : undefined}
+                onClick={runQueue}
+              >
                 {t("btn_run_queue")}
               </button>
               <button
@@ -300,9 +322,21 @@ export default function TestsPage() {
               >
                 {t("btn_reset_queue")}
               </button>
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                disabled={queue.length === 0}
+                title={t("btn_create_campaign_title")}
+                onClick={() => {
+                  setCampaignTitle("");
+                  setCampaignModalOpen(true);
+                }}
+              >
+                {campaignCreated ? t("btn_create_campaign_done") : t("btn_create_campaign")}
+              </button>
             </div>
             <span className="queue-count">{queueLabel}</span>
           </div>
+          {campaignsBusy && <p className="queue-busy-hint">{t("campaigns_busy_message")}</p>}
           <div className="panel-body" ref={queueListRef} onDragOver={onQueueDragOver}>
             {queue.length === 0 ? (
               <div className="queue-empty">
@@ -341,9 +375,7 @@ export default function TestsPage() {
                           <div>
                             <p className="test-name">{tst.alias || tst.name}</p>
                             <div className="test-badges">
-                              <span className={`badge-type ${badgeClass(tst.type)}`}>{tst.typeLabel}</span>
                               {tst.estimatedMs ? <span className="badge-est">~{formatDuration(tst.estimatedMs)}</span> : null}
-                              {environmentBadge(tst)}
                             </div>
                           </div>
                         </div>
@@ -351,7 +383,12 @@ export default function TestsPage() {
                           <span className="status-pill" style={{ display: status === "idle" ? "none" : "" }}>
                             {statusLabels[status] || status}
                           </span>
-                          <button className="btn btn-primary btn-sm btn-run" disabled={status === "running"} onClick={() => runTest(tst)}>
+                          <button
+                            className="btn btn-primary btn-sm btn-run"
+                            disabled={status === "running" || campaignsBusy}
+                            title={campaignsBusy ? t("campaigns_busy_message") : undefined}
+                            onClick={() => runTest(tst)}
+                          >
                             {status === "running" ? <span className="spinner-border spinner-xs" role="status" /> : t("btn_run")}
                           </button>
                           <button className="btn-remove-queue" title={t("btn_remove_from_queue_title")} onClick={() => removeFromQueue(tst.filename)}>
@@ -361,19 +398,7 @@ export default function TestsPage() {
                       </div>
                     </div>
                     {output && (
-                      <div className="output-area visible" draggable={false}>
-                        <div className="output-toolbar">
-                          <button
-                            type="button"
-                            className="btn-copy-output"
-                            title={t("btn_copy_output_title")}
-                            onClick={() => copyOutput(tst.filename)}
-                          >
-                            {copiedFilename === tst.filename ? t("btn_copy_output_done") : t("btn_copy_output_title")}
-                          </button>
-                        </div>
-                        <pre className="output-pre" draggable={false}>{output}</pre>
-                      </div>
+                      <OutputBlock output={output} copied={copiedFilename === tst.filename} onCopy={() => copyOutput(tst.filename)} />
                     )}
                   </div>
                 );
@@ -459,6 +484,49 @@ export default function TestsPage() {
           </div>
         </div>
       )}
+
+      {campaignModalOpen &&
+        (() => {
+          return (
+            <div
+              className="results-overlay"
+              style={{ display: "flex" }}
+              onClick={(e) => e.target === e.currentTarget && setCampaignModalOpen(false)}
+            >
+              <div className="results-dialog" style={{ maxWidth: 420 }}>
+                <div className="results-dialog-header">
+                  <h2 className="results-title">{t("modal_create_campaign_title")}</h2>
+                  <button className="results-close-btn" onClick={() => setCampaignModalOpen(false)}>
+                    ×
+                  </button>
+                </div>
+                <div className="results-dialog-body" style={{ padding: "1.25rem 1.5rem" }}>
+                  <label className="form-label small fw-semibold">{t("campaign_title_label")}</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    autoFocus
+                    placeholder={t("campaign_title_placeholder")}
+                    value={campaignTitle}
+                    onChange={(e) => setCampaignTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateCampaign();
+                    }}
+                  />
+                  <p style={{ margin: "0.9rem 0 0" }}>{t("campaign_create_confirm_count").replace("{n}", String(queue.length))}</p>
+                </div>
+                <div className="results-dialog-footer">
+                  <button className="btn btn-outline-secondary btn-sm" onClick={() => setCampaignModalOpen(false)}>
+                    {t("btn_cancel")}
+                  </button>
+                  <button className="btn btn-primary btn-sm" onClick={handleCreateCampaign}>
+                    {t("btn_create_campaign")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

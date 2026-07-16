@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 
-module.exports = function createAuth({ envLocal }) {
+// Single shared-secret login: the client exchanges AUTH_TOKEN for a
+// short-lived JWT, then every /api call is checked by requireAuth.
+module.exports = function createAuthService({ envLocal }) {
 	const AUTH_TOKEN = envLocal.AUTH_TOKEN || process.env.AUTH_TOKEN;
 	const JWT_SECRET = envLocal.JWT_PRIVATE_KEY || process.env.JWT_PRIVATE_KEY;
 

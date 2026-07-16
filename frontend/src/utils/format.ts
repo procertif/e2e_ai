@@ -36,11 +36,6 @@ export function fuzzyMatch(name: string, query: string) {
   return queryTokens.every((qt) => nameTokens.some((nt) => nt.includes(qt)));
 }
 
-export function badgeClass(type: string) {
-  const map: Record<string, string> = { quiz: "badge-quiz", jury: "badge-jury", correction: "badge-correction", validation: "badge-validation", signature: "badge-signature" };
-  return map[type] || "badge-quiz";
-}
-
 export function filenameToFolder(filename: string) {
   return filename.replace(/^\d+-/, "").replace(/\.spec\.ts$/, "");
 }

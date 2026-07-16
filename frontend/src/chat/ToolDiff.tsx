@@ -52,14 +52,17 @@ function diffLines(oldStr: string, newStr: string): DiffLine[] {
 
 const MARKER = { same: " ", add: "+", del: "-" };
 
-export function ToolDiffView({ name, input }: { name: string; input: ToolInput }) {
+export function ToolDiffView({ name, input, filePathOverride }: { name: string; input: ToolInput; filePathOverride?: string }) {
   const n = name.toLowerCase();
-  const filePath = (input?.file_path as string) || "";
+  if (n !== "writetestfile") return null;
+
+  const testname = (input?.testname as string) || "";
+  const filePath = filePathOverride || (input?.kind === "actions" ? `data/actionTest/${testname}.json` : `data/versioned/tests/${testname}.spec.ts`);
 
   let lines: DiffLine[];
-  if (n === "edit") {
+  if (input?.mode === "edit") {
     lines = diffLines((input?.old_string as string) || "", (input?.new_string as string) || "");
-  } else if (n === "write") {
+  } else if (input?.mode === "create") {
     lines = ((input?.content as string) || "").split("\n").map((text): DiffLine => ({ type: "add", text }));
   } else {
     return null;

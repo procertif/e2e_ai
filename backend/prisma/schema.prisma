@@ -8,15 +8,16 @@ datasource db {
 }
 
 model ChatLog {
-  id         Int       @id @default(autoincrement())
-  runId      String
-  startedAt  DateTime
-  endedAt    DateTime?
-  durationMs Int?
-  totals     String?
-  apiCalls   String?
-  messages   String
-  createdAt  DateTime  @default(now())
+  id             Int       @id @default(autoincrement())
+  runId          String
+  conversationId String?
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationMs     Int?
+  totals         String?
+  apiCalls       String?
+  messages       String
+  createdAt      DateTime  @default(now())
 
   @@map("chat_logs")
 }
@@ -104,4 +105,28 @@ model SavedChat {
   updatedAt    DateTime @updatedAt
 
   @@map("saved_chats")
+}
+
+// One global queue for every AI call — conversation turns and correction
+// turns alike — so only one is ever in flight at a time, matching the
+// existing "one Playwright process at a time" constraint (RunTest is
+// reachable from both). Rows persist across a restart: anything still
+// "queued" resumes as-is, anything caught mid-"running" gets reset to
+// "queued" (its in-flight Claude call is gone either way, so it just
+// retries from the same message) — see aiQueue.js's startup recovery.
+model AiQueueTask {
+  id           Int       @id @default(autoincrement())
+  kind         String // "conversation" | "correction"
+  targetKey    String // sessionId (conversation) or test filename (correction)
+  message      String
+  imagesJson   String? // base64 images attached to the message, if any
+  instructions String? // conversation-only: system-prompt add-on from the client
+  environmentId Int? // conversation-only
+  seedHistoryJson String? // conversation-only: client-seeded history for a resumed thread
+  status       String    @default("queued") // "queued" | "running"
+  runId        String?
+  createdAt    DateTime  @default(now())
+  startedAt    DateTime?
+
+  @@map("ai_queue_tasks")
 }

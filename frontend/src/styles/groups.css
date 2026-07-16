@@ -231,6 +231,19 @@
   background: #f8f9fa;
 }
 
+.group-test-row .avail-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-test-row-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* Group assignment button (left panel) */
 
 .group-assign-btn {

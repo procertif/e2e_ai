@@ -5,10 +5,10 @@ export default defineConfig({
 	outputDir: "data/test-results",
 	fullyParallel: false,
 	retries: 0,
-	reporter: [["line"], ["./step-reporter.cjs"]],
+	reporter: [["line"], ["./src/step-reporter.cjs"]],
 	use: {
-		baseURL: process.env.BASE_URL || "https://app.procertif.dev",
-		headless: process.env.HEADLESS !== "false",
+		baseURL: process.env.DEFAULT_URL,
+		headless: process.env.HEADLESS == "true",
 		trace: "off",
 		screenshot: "off",
 		ignoreHTTPSErrors: true,
