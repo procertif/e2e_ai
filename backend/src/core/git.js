@@ -2,9 +2,19 @@ const { spawn } = require("child_process");
 
 // `redact` strips tokens from error messages before they can reach an HTTP
 // response (authed remote URLs embed the token).
+// Auth always travels in the remote URL (x-access-token:<TOKEN>@github.com),
+// never through git's credential machinery — so any configured helper is
+// explicitly disabled ("-c credential.helper=" clears the list). Without
+// this, a global `credential.helper = store` would silently write the app's
+// tokens into the PC user's ~/.git-credentials on every fetch/push (and
+// could shadow their own GitHub credential). GIT_TERMINAL_PROMPT=0 makes a
+// missing/expired token fail fast instead of hanging on a hidden prompt.
 function runGit(args, cwd, redact = (s) => s) {
 	return new Promise((resolve, reject) => {
-		const proc = spawn("git", args, { cwd, env: { PATH: process.env.PATH, HOME: process.env.HOME } });
+		const proc = spawn("git", ["-c", "credential.helper=", ...args], {
+			cwd,
+			env: { PATH: process.env.PATH, HOME: process.env.HOME, GIT_TERMINAL_PROMPT: "0" },
+		});
 		let output = "";
 		proc.stdout.on("data", (d) => (output += d.toString()));
 		proc.stderr.on("data", (d) => (output += d.toString()));
