@@ -334,7 +334,7 @@
   "config_loading": "Chargement…",
   "config_load_error": "Impossible de charger la configuration.",
   "config_save_error": "Impossible d’enregistrer la configuration.",
-  "config_prompts_intro": "Prompts système envoyés à Claude. Modifie-les pour ajuster son comportement — laisser le texte par défaut (badge « défaut ») permet de suivre automatiquement les améliorations futures.",
+  "config_prompts_intro": "Le prompt système de chaque assistant est obligatoire et en lecture seule (accordéon ci-dessous). Tu peux uniquement ajouter un complément personnalisé, inséré à la fin du prompt.",
   "config_prompt_classic_title": "Prompt système (Conversation)",
   "config_prompt_correction_title": "Prompt système (Correction)",
   "config_correction_placeholder_hint": "Le littéral {filename} est remplacé par le nom du test en correction au lancement de chaque conversation.",
@@ -432,5 +432,8 @@
   "scenario_edit_proposal_title": "L'IA propose une édition du scénario",
   "scenario_edit_proposal_dismiss": "Ignorer la proposition",
   "tests_list_already_queued": "Déjà dans la file d'exécution",
-  "meta_rename_title": "Renommer le test"
+  "meta_rename_title": "Renommer le test",
+  "config_base_prompt_title": "Prompt système obligatoire (lecture seule)",
+  "config_custom_label": "Complément personnalisé (ajouté à la fin du prompt)",
+  "config_custom_placeholder": "Ajoute ici tes instructions supplémentaires…"
 }

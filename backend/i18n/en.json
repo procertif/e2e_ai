@@ -334,7 +334,7 @@
   "config_loading": "Loading…",
   "config_load_error": "Failed to load configuration.",
   "config_save_error": "Failed to save configuration.",
-  "config_prompts_intro": "System prompts sent to Claude. Edit them to adjust its behavior — keeping the default text (“default” badge) automatically tracks future improvements.",
+  "config_prompts_intro": "Each assistant's system prompt is mandatory and read-only (accordion below). You can only add a custom block, appended at the end of the prompt.",
   "config_prompt_classic_title": "System prompt (Conversation)",
   "config_prompt_correction_title": "System prompt (Correction)",
   "config_correction_placeholder_hint": "The literal {filename} is replaced with the name of the test under correction when each conversation starts.",
@@ -432,5 +432,8 @@
   "scenario_edit_proposal_title": "The AI proposes a scenario edition",
   "scenario_edit_proposal_dismiss": "Dismiss the proposal",
   "tests_list_already_queued": "Already in the execution queue",
-  "meta_rename_title": "Rename the test"
+  "meta_rename_title": "Rename the test",
+  "config_base_prompt_title": "Mandatory system prompt (read-only)",
+  "config_custom_label": "Custom addition (appended at the end of the prompt)",
+  "config_custom_placeholder": "Add your extra instructions here…"
 }

@@ -33,10 +33,12 @@ export default function ConfigurationPage() {
 
   const applyConfig = (data: PromptsConfig) => {
     setConfig(data);
+    // Drafts hold only the CUSTOM addition — the base prompt is mandatory
+    // and read-only (shown in the collapsed accordion).
     setDrafts({
-      correction: data.correction.value ?? data.correction.default,
-      creation: data.creation.value ?? data.creation.default,
-      scenario: data.scenario.value ?? data.scenario.default,
+      correction: data.correction.value ?? "",
+      creation: data.creation.value ?? "",
+      scenario: data.scenario.value ?? "",
     });
   };
 
@@ -53,9 +55,9 @@ export default function ConfigurationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isDefault = config ? drafts[active].trim() === config[active].default.trim() : true;
+  const isDefault = config ? !drafts[active].trim() : true;
   const isDirty = config
-    ? PROMPT_KEYS.some((key) => drafts[key].trim() !== (config[key].value ?? config[key].default).trim())
+    ? PROMPT_KEYS.some((key) => drafts[key].trim() !== (config[key].value ?? "").trim())
     : false;
 
   const save = async () => {
@@ -78,9 +80,10 @@ export default function ConfigurationPage() {
     }
   };
 
+  // "Réinitialiser" now means: drop the custom addition (the base prompt is
+  // always there anyway).
   const resetToDefault = () => {
-    if (!config) return;
-    setDrafts((d) => ({ ...d, [active]: config[active].default }));
+    setDrafts((d) => ({ ...d, [active]: "" }));
   };
 
   const exportTxt = () => {
@@ -166,6 +169,12 @@ export default function ConfigurationPage() {
                 </div>
               </div>
 
+              <details className="config-base-accordion">
+                <summary>{t("config_base_prompt_title")}</summary>
+                <pre className="config-base-prompt">{config[active].default}</pre>
+              </details>
+
+              <label className="form-label small fw-semibold" style={{ marginTop: "0.75rem" }}>{t("config_custom_label")}</label>
               {active === "correction" && <p className="config-prompt-hint">{t("config_correction_placeholder_hint")}</p>}
               {active === "creation" && <p className="config-prompt-hint">{t("config_correction_placeholder_hint")}</p>}
               {active === "scenario" && <p className="config-prompt-hint">{t("config_scenario_placeholder_hint")}</p>}
@@ -174,6 +183,7 @@ export default function ConfigurationPage() {
                 className="config-prompt-textarea"
                 value={drafts[active]}
                 spellCheck={false}
+                placeholder={t("config_custom_placeholder")}
                 onChange={(e) => setDrafts((d) => ({ ...d, [active]: e.target.value }))}
               />
 
