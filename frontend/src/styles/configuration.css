@@ -53,12 +53,18 @@
   color: #4f46e5;
 }
 
-.config-menu-dot {
+.config-menu-badge {
   margin-left: auto;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #6366f1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #4f46e5;
+  white-space: nowrap;
 }
 
 .config-editor-pane {

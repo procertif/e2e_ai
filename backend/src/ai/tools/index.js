@@ -9,8 +9,9 @@ function truncate(str) {
 // per-run context: { environment, signal, onToolOutput } for classic chat,
 // plus { correctionFilename, corrections } when the run is scoped to a
 // correction draft.
-function createToolExecutor({ paths, testRunner, testedRepo }) {
+function createToolExecutor({ paths, testRunner, testedRepo, envLocal }) {
 	const shared = {
+		envLocal,
 		E2E_DIR: paths.E2E_DIR,
 		DATA_DIR: paths.DATA_DIR,
 		TESTS_DIR: paths.TESTS_DIR,

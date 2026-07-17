@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWrench, faListOl, faWandMagicSparkles, faRotateLeft, faDownload, faUpload, faFloppyDisk } from "@fortawesome/free-solid-svg-icons";
+import { faWrench, faListOl, faWandMagicSparkles, faRotateLeft, faDownload, faUpload, faFloppyDisk, faPen } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import "../styles/configuration.css";
@@ -130,7 +130,11 @@ export default function ConfigurationPage() {
                 >
                   <FontAwesomeIcon icon={item.icon} fixedWidth style={{ fontSize: 13 }} />
                   <span>{t(item.i18nKey)}</span>
-                  {config[item.key].value !== null && <span className="config-menu-dot" title={t("config_badge_custom")} />}
+                  {config[item.key].value !== null && (
+                    <span className="config-menu-badge" title={t("config_badge_custom")}>
+                      <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} /> {t("config_badge_custom")}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>

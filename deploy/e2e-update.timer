@@ -1,0 +1,14 @@
+# /etc/systemd/system/e2e-update.timer
+# Tick toutes les minutes — l'intervalle RÉEL entre deux vérifications se
+# règle dans le .env de l'app (DEPLOY_UPDATE_INTERVAL_SECONDS, défaut 300) :
+# le script s'auto-limite, donc pas de daemon-reload pour changer la cadence.
+[Unit]
+Description=Timer de mise à jour automatique Procertif E2E
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+RandomizedDelaySec=10
+
+[Install]
+WantedBy=timers.target

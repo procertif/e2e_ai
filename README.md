@@ -1,193 +1,159 @@
-# Procertif — E2E Test Suite
+# Procertif — E2E AI
 
-End-to-end [Playwright](https://playwright.dev/) test suite for the [Procertif](https://app.procertif.dev) certification platform. Tests cover evaluation flows (quizzes) and jury workflows. The UI and tests are in French.
+Plateforme de tests end-to-end [Playwright](https://playwright.dev/) pilotée par IA pour l'application [Procertif](https://app.procertif.dev). Les tests sont créés, corrigés et maintenus avec l'aide d'assistants Claude, chacun cadré par des outils restreints et une validation humaine obligatoire. UI et tests en français.
 
-## Prerequisites
+## Architecture
 
-- Node.js 20+
-- Chromium (installed via Playwright)
+- **`backend/`** — API Express (Node 20). Injection de dépendances via `src/container.js`, modules dans `src/modules/`, assistants IA dans `src/ai/`. Base SQLite (Prisma) dans `data/app.db`.
+- **`frontend/`** — SPA React + Vite (build servi par le backend en production).
+- **`src/`** — utilitaires partagés des specs (`testUtils.ts`, reporter d'étapes).
+- **`data/`** — toutes les données runtime (gitignoré, détail plus bas). Tous les dossiers sont auto-créés au démarrage du backend.
+
+## Démarrage
 
 ```bash
-npm install
-npx playwright install chromium
+npm install && npx playwright install chromium
+npm --prefix backend install
+npm --prefix frontend install
+
+npm run build      # build du front (servi par le backend)
+npm run server     # backend sur http://localhost:3333
+# dev front avec hot-reload : npm --prefix frontend run dev (port 5173)
 ```
 
-## Configuration
+L'accès à l'UI demande un login : le client échange `AUTH_TOKEN` contre un JWT de 12 h.
 
-Create a `.env` file at the project root:
+## Configuration (`.env` à la racine)
 
 ```env
-BASE_URL=https://app.procertif.dev
-TEST_OTP=444444
+# — Obligatoire —
+AUTH_TOKEN=change-me                     # secret partagé du login UI
+JWT_PRIVATE_KEY=change-me-aussi          # signature des JWT
+
+# — Serveur & tests —
 PORT=3333
+DEFAULT_URL=https://app.procertif.dev
 HEADLESS=true
 LANG=fr
-ANTHROPIC_CLIENT_ID=<Anthropic OAuth client-id>
+
+# — IA (Claude) —
+ANTHROPIC_CLIENT_ID=<oauth-client-id>
 ANTHROPIC_MODEL=claude-sonnet-4-6
+
+# — Repos git —
+GITHUB_TOKEN=<token-sauvegarde>          # push de data/versioned/
+GITHUB_REPO_URL=https://github.com/<org>/<repo-sauvegarde>.git
+TEST_GITHUB_TOKEN=<token-app-testee>     # fetch du code testé (FindSelector)
+TEST_GITHUB_REPO_URL=https://github.com/<org>/<app-testee>.git
+
+# — Sécurité (optionnel, défauts sensés) —
+LOGIN_MAX_ATTEMPTS=5
+LOGIN_WINDOW_SECONDS=60
+WEBFETCH_ALLOWED_DOMAINS=                # vide = web public ; ex: procertif.com,docs.exemple.fr
+
+# — Machine de déploiement uniquement (optionnel) —
+DEPLOY_UPDATE_INTERVAL_SECONDS=300       # cadence de l'auto-update (deploy/)
+# DEPLOY_REPO_PAT=…                      # inutile tant que le repo est public
+
 ```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BASE_URL` | `https://app.procertif.dev` | Target application URL |
-| `PORT` | `3333` | Web server port (requires restart) |
-| `HEADLESS` | `true` | `false` to open Chromium in windowed mode |
-| `LANG` | `en` | UI language: `fr` or `en` |
-| `ANTHROPIC_CLIENT_ID` | — | OAuth client ID for the Claude API |
-| `ANTHROPIC_MODEL` | — | Claude model to use (e.g. `claude-sonnet-4-6`) |
+`TEST_RUNNER_UID` / `TEST_RUNNER_GID` / `TEST_RUNNER_HOME` sont posés par l'image Docker, pas par le `.env`.
 
+| Variable | Description |
+|----------|-------------|
+| `AUTH_TOKEN` | Secret partagé du login (obligatoire) |
+| `JWT_PRIVATE_KEY` | Secret de signature des JWT (obligatoire) |
+| `PORT` | Port du backend (défaut `3333`) |
+| `DEFAULT_URL` | URL cible par défaut des tests |
+| `HEADLESS` | `false` pour ouvrir Chromium en fenêtré |
+| `LANG` | Langue de l'UI : `fr` ou `en` |
+| `ANTHROPIC_CLIENT_ID` / `ANTHROPIC_MODEL` | OAuth client-id et modèle Claude |
+| `GITHUB_TOKEN` / `GITHUB_REPO_URL` | Repo de sauvegarde de `data/versioned/` (onglet Sauvegarde) |
+| `TEST_GITHUB_TOKEN` / `TEST_GITHUB_REPO_URL` | Repo de l'application testée (FindSelector) |
+| `LOGIN_MAX_ATTEMPTS` / `LOGIN_WINDOW_SECONDS` | Rate-limit du login (défaut 5 / 60 s) |
+| `WEBFETCH_ALLOWED_DOMAINS` | Allowlist de domaines pour l'outil WebFetch de l'IA (vide = tout le web public ; les IP privées sont toujours bloquées) |
+| `TEST_RUNNER_UID` / `TEST_RUNNER_GID` / `TEST_RUNNER_HOME` | Compte restreint `e2erunner` exécutant les tests (posé par l'image Docker) |
+| `DEPLOY_UPDATE_INTERVAL_SECONDS` / `DEPLOY_REPO_PAT` | Auto-update sur machine de déploiement (voir `deploy/`) ; le PAT n'est utile que si le repo devient privé |
 
-## Running Tests
+## L'interface
+
+### Tests (`/`)
+
+Quatre sous-onglets :
+
+- **Liste des tests** — parcours de tous les tests : cartes avec durée de la dernière exécution réussie, environnement (badge couleur), groupes. À droite, menu **Informations** (Métadonnée / Scénario / Captures d'écran) et **File d'exécution**. Renommage (alias) depuis les métadonnées, suppression complète (fichier + scénario + captures + historique), ajout à la file, envoi en correction.
+- **Création de tests** (onglet d'arrivée) — flux en deux états. Un nouveau test se crée avec un simple titre ; on rédige d'abord son **scénario** (résultat attendu Gherkin) avec l'assistant IA dédié, puis sa validation **lance automatiquement** la construction du fichier de test par l'IA (exploration du code de l'app via FindSelector, écriture du brouillon, itérations RunTest). Batch Démarrer / Pause / Arrêter. Un test n'est validable que s'il **passe**.
+- **File d'exécution** (intégrée à Liste des tests) — exécution séquentielle, play/pause/stop, drag & drop, ajout par groupes, envoi en correction, création de campagne, sortie console en direct (SSE), récap de fin de session.
+- **Correction de tests** — les tests échoués (campagnes ou envois manuels) arrivent ici avec leur sortie console. Onglets Console / Éditeur (Monaco) / IA / Captures / Scénario. Batch de correction, badges d'état, validation qui écrit le fichier réel. L'IA de correction peut **proposer une édition du scénario** (bandeau au-dessus du chat) quand la spec ne correspond plus au comportement légitime de l'app ; la validation du scénario réédité relance automatiquement la mise à jour du test.
+
+### Le modèle « scénario = spécification »
+
+Chaque test est adossé à un scénario Gherkin français (« Résultat attendu ») qui fait contrat : toute modification du comportement vérifié passe d'abord par le scénario (assistant dédié, outil `WriteScenarioSpec` exclusif), puis le test est mis en conformité. Les prompts système imposent ce flux.
+
+### Autres pages
+
+- **Campagnes** — exécutions groupées historisées ; les échecs partent en correction en un clic.
+- **Groupes** — organisation des tests, couleurs, gestion en masse.
+- **Logs** — historique des sessions IA (tokens, appels API, contenu).
+- **Environnements** — cibles d'exécution : URL, variables (valeurs jamais exposées aux IA — clés seulement, sorties scrubbées), branche du repo testé pour FindSelector, couleur.
+- **Sauvegarde** — `data/versioned/` est un repo git synchronisé/poussé vers `GITHUB_REPO_URL` ; l'onglet montre le diff par catégorie.
+- **Configuration** — prompts système des 3 assistants (Correction, Création de test, Scénario). Le prompt de base est **obligatoire et en lecture seule** (accordéon) ; seul un **complément personnalisé** est éditable, ajouté à la fin.
+
+## Les assistants IA
+
+Une **file globale unique** sérialise tous les appels IA (une seule exécution à la fois), avec pause/arrêt par type. Trois assistants, chacun avec ses outils :
+
+| Assistant | Outils | Écrit où |
+|-----------|--------|----------|
+| Correction | WriteTestFile, ReadDataFile, ListEnvironmentVariables, RunTest, FindSelector, WebFetch, ProposeScenarioEdit | brouillon en mémoire, fichier réel à la validation humaine |
+| Création | idem sans ProposeScenarioEdit | idem |
+| Scénario | WriteScenarioSpec, ReadDataFile, FindSelector, WebFetch | la spec du scénario uniquement |
+
+Garde-fous : chemins bornés à `data/` (secrets `environments/`, `config/`, `app.db` exclus), WebFetch protégé SSRF (IP privées bloquées post-DNS, allowlist optionnelle), valeurs d'environnement scrubbées des sorties de test, validation humaine avant tout fichier réel.
+
+## Exécution des tests
 
 ```bash
-# All tests (Playwright CLI)
-npm test
-
-# A specific test
-npx playwright test cas1-quiz.spec.ts
+npm test                                  # CLI Playwright directe
+npx playwright test data/versioned/tests/<nom>.spec.ts
 ```
 
-## Web UI (Test Runner)
-
-A Node.js server exposes a UI at `http://localhost:3333` for launching and managing tests without the CLI.
-
-```bash
-npm run server
-```
+Depuis l'UI, les runs passent par le backend ; sous Docker ils s'exécutent sous le compte restreint **`e2erunner`** (sans shell, env minimal, cf. `docker-entrypoint.sh`). Sortie Playwright dans `data/test-results/run/` (vidé/recréé à chaque run).
 
 ## Docker
 
 ```bash
-docker compose up
+docker compose up -d --build
 ```
 
-The container uses host networking and mounts the `app/`, `tests/`, `data/`, and `screenshots/` directories from the local filesystem.
+L'image embarque Node + Chromium ; `data/`, `.env`, `backend/`, `src/` sont bind-mountés. L'entrypoint verrouille `data/` (owner-only) puis ré-ouvre le strict nécessaire à `e2erunner` : lecture des specs, écriture de `screenshots/` et `test-results/`.
 
-## Web UI Features
+### Mise à jour automatique (`deploy/`)
 
-### Available Tests (left panel)
+Sur la machine de déploiement : timer systemd qui vérifie `origin/main` (fetch anonyme — repo public ; `DEPLOY_REPO_PAT` en lecture seule à poser dans le `.env` seulement si le repo devient privé) et fait `git pull + compose up -d --build` quand un commit arrive. Cadence via `DEPLOY_UPDATE_INTERVAL_SECONDS`. Installation : voir en-tête de `deploy/auto-update.sh`.
 
-- Lists all `*.spec.ts` files in the `tests/` folder, with type badge (Quiz, Jury…) and estimated duration
-- Real-time search by test name
-- Two tabs: **Tests** (individual list) and **Groups** (add by entire group)
-- `+` button to add a test to the queue; `×` to remove it
-- Context menu per test: **Rename** (display alias — the file is not renamed) and **Delete** (permanently deletes the test file, screenshots, actions, spec, and associated data)
-
-### Run Queue (right panel)
-
-- Tests run **sequentially** in queue order
-- Reorderable via **drag & drop**
-- Each test can be launched individually via its **Run** button, or all at once via **Run Queue**
-- Playwright output displayed in real time inside the test card (SSE streaming)
-- Visual status per card: `Ready` / `Running…` / `Passed ✓` / `Failed ✗`
-- **Stop** button to interrupt a running test (SIGKILL on the Playwright process)
-- Queue is persisted in `localStorage` (survives page reloads)
-- End of session: summary modal showing tests launched / passed / failed, total duration, failure list, and links to screenshots
-
-### Groups (`/groups`)
-
-- Create, rename, and delete test groups
-- Assign a test to a group via a selection modal
-- Bulk management via the **Manage Tests** modal (checkboxes)
-- Each group is automatically color-coded and shows the number of tests it contains
-- Groups are persisted in `data/groups.json`
-
-### Screenshots (`/screenshots`)
-
-- Displays all generated captures, organized by test
-- Each screenshot group is collapsible/expandable
-- Search by test name
-- **Lightbox** on click: keyboard navigation (←/→), counter, caption
-- Filter by session: `?f=all` (all tests from the last session) or `?f=failed` (failed tests only)
-
-### Scenarios (`/scenarios`)
-
-- Displays the Gherkin specs generated for each test (French format: *Given / When / Then*)
-- Specs are auto-generated from the test code and the action log (`data/actionTest/`)
-- **Regenerate** button to re-trigger generation via the Claude API
-- **Pending test workflow**: tests generated by the AI chat arrive in a *pending* state; from this page they can be run, confirmed (moved to `tests/`), or discarded
-
-### AI Chat (`/chat`)
-
-- Integrated chat interface to interact with Claude
-- Generates and modifies tests via natural-language prompts directly from the UI
-- **Available tools**: Read, Write, Edit, Bash, Glob, LS, WebFetch, ReadImage — Claude can read and write project files
-- **Interleaved tool calls**: tool pills appear at the exact point where Claude used them in the response stream, not all grouped at the top of the message
-- **Global instructions**: a collapsible panel lets you define instructions applied automatically to every message (e.g. *Always take a screenshot between each action*), persisted in `localStorage`
-- **Image support**: attach screenshots to messages (paste, drag-and-drop, or attachment button)
-- **Conversation save**: "Save" button in the header opens a modal to name the file and saves it as JSON to `tests/prompt/`
-- **Stop button**: interrupts an ongoing generation
-
-### Chat Logs (`/logs`)
-
-- History of all AI chat sessions
-- Shows per session: tokens consumed (input / output / cache), number of API calls
-- Detailed view per session: list of API calls with model, duration, tokens, and full message content
-
-### Configuration (`/config`)
-
-- Manage the `.env` file directly from the browser
-- Known variables with labels and descriptions
-- Custom variables (free key/value) with dynamic add/remove
-- **Save** button — `PORT` changes require a server restart
-
-## URLs
-
-| URL | Description |
-|-----|-------------|
-| `http://localhost:3333/` | Test runner |
-| `http://localhost:3333/screenshots` | All screenshots |
-| `http://localhost:3333/screenshots?f=all` | Screenshots from the last session |
-| `http://localhost:3333/screenshots?f=failed` | Screenshots of failed tests |
-| `http://localhost:3333/groups` | Group management |
-| `http://localhost:3333/scenarios` | Gherkin scenarios and pending tests |
-| `http://localhost:3333/chat` | AI Chat |
-| `http://localhost:3333/logs` | Chat session logs |
-| `http://localhost:3333/config` | `.env` configuration |
-
-## Structure
+## Structure de `data/`
 
 ```
-app/                        # Test Runner UI
-  server.js                 # HTTP server (Node.js, port 3333)
-  index.html / index.css        # Main page (test runner)
-  screenshots.html / screenshots.css  # Screenshot viewer
-  groups.html / groups.css  # Group management
-  scenarios.html / .css     # Gherkin scenarios + pending workflow
-  chat.html / chat.css      # AI chat interface
-  logs.html / logs.css      # Chat session history
-  config.html               # .env configuration
-  i18n/                     # Translations (en.json, fr.json)
-  i18n.js                   # Client-side i18n loader
-
-tests/                      # Playwright specs (gitignored, vary per environment)
-  <domain>_<type>.spec.ts   # e.g. badge_competences_ia.spec.ts, titre_rncp.spec.ts
-  prompt/                   # Saved chat conversations (JSON)
-
-data/                       # Runtime data (gitignored)
-  groups.json               # Persisted groups
-  last-session.json         # Last session (overwritten on each run)
-  run-history.json          # Execution duration history
-  test-aliases.json         # Display aliases for test files
-  actionTest/               # Per-test action logs (JSON)
-  specs/                    # Generated Gherkin specs (Markdown)
-  pending/                  # Chat-generated tests awaiting confirmation
-  promptTest/               # Per-test prompt histories
-  chat-logs/                # AI chat session logs (JSON)
-
-screenshots/                # Test-generated captures (gitignored)
+data/
+  app.db                # SQLite (aliases, historique runs, logs IA, file IA)
+  versioned/            # Repo git de sauvegarde (synchronisé vers GitHub)
+    tests/              # Specs Playwright confirmées (*.spec.ts)
+    scenarios/          # Scénarios (spec Gherkin + actions) — 1 JSON par test
+    groups/  campaigns/
+  corrections/          # Brouillons de correction (draft + chat) — 1 JSON par test
+  creations/            # Brouillons de création — idem
+  testMeta/             # Métadonnées par test (créé le, maj le, dernière exéc…)
+  environments/         # Environnements avec valeurs en clair (jamais versionné, jamais lisible par l'IA)
+  config/               # Compléments de prompts (prompts.json)
+  screenshots/          # Captures des runs (écrites par les tests)
+  test-results/run/     # OutputDir Playwright (éphémère)
+  testedRepositories/   # Code source de l'app testée par branche (FindSelector)
+  actionTest/  pending/ # Listes d'actions, specs en attente
 ```
-
-## Spec Naming Convention
-
-```
-<domain>_<type>.spec.ts
-```
-
-Examples: `badge_competences_ia.spec.ts`, `titre_rncp.spec.ts`
 
 ## Notes
 
-- Screenshots are numbered and labelled via a `shot()` helper defined in each test.
-- Execution is sequential (`fullyParallel: false`, `retries: 0`).
-- Browser: Chromium only.
-- Tests, screenshots, and the data folder are gitignored.
+- Exécution séquentielle (`fullyParallel: false`, `retries: 0`), Chromium uniquement, timeouts d'étape ≤ 10 s imposés par les prompts.
+- Nommage des specs : `<domaine>_<type>.spec.ts` (ex. `badge_competences_ia.spec.ts`) ; le titre humain vit dans l'alias.
+- `data/` est gitignoré dans ce repo — la sauvegarde des assets de test passe par le repo `data/versioned/`.

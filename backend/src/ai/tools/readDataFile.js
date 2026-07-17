@@ -26,12 +26,26 @@ async function toApiImage(buffer, mediaType) {
 }
 
 module.exports = function createReadDataFile({ E2E_DIR, DATA_DIR, TEST_UTILS_PATH, truncate }) {
+	// Secrets and operator data stay out of the model's reach even though
+	// they live under data/: environment variable VALUES (environments/ —
+	// ListEnvironmentVariables only ever exposes keys), the app database
+	// (chat logs, aliases) and the operator config. Everything else in data/
+	// is fair game for the AI.
+	const BLOCKED = [
+		path.join(DATA_DIR, "environments"),
+		path.join(DATA_DIR, "config"),
+		path.join(DATA_DIR, "app.db"),
+	];
+
 	return async function readDataFile(input) {
 		if (typeof input.path !== "string") return "Error: path is required.";
 		const resolved = path.resolve(E2E_DIR, input.path);
 		const insideData = resolved === DATA_DIR || resolved.startsWith(DATA_DIR + path.sep);
 		if (!insideData && resolved !== TEST_UTILS_PATH) {
 			return "Access denied: only data/ and src/testUtils.ts are reachable through this tool.";
+		}
+		if (BLOCKED.some((b) => resolved === b || resolved.startsWith(b + path.sep))) {
+			return "Access denied: this path holds secrets or operator configuration and is never readable.";
 		}
 		if (!fs.existsSync(resolved)) return "Error: not found.";
 		if (fs.statSync(resolved).isDirectory()) {

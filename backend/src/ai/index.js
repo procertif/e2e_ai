@@ -11,7 +11,7 @@ const createSpecGenerator = require("./specGenerator");
 // tests replace with a fake.
 module.exports = function createAI({ paths, envLocal, testRunner, db, environments, scenarios, corrections, creations, testedRepo, promptsConfig }) {
 	const client = createAnthropicClient({ envLocal, promptsConfig });
-	const executeTool = createToolExecutor({ paths, testRunner, testedRepo });
+	const executeTool = createToolExecutor({ paths, testRunner, testedRepo, envLocal });
 	const registry = createRunRegistry();
 
 	const { startCorrectionChatRun } = createCorrectionRun({ client, executeTool, registry, environments, corrections, promptsConfig, scenarios });

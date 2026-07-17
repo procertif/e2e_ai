@@ -1,0 +1,12 @@
+# /etc/systemd/system/e2e-update.service
+# Une exécution du script d'auto-update (déclenchée par e2e-update.timer).
+# Adapter WorkingDirectory/ExecStart au chemin réel du repo sur la machine.
+[Unit]
+Description=Mise à jour automatique Procertif E2E (git pull + compose up)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/e2e_ai
+ExecStart=/opt/e2e_ai/deploy/auto-update.sh

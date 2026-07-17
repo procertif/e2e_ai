@@ -13,7 +13,10 @@ module.exports = function createScreenshotsService({ SCREENSHOTS_DIR, testsServi
 
 	function resolveImage(relativePath) {
 		const imgPath = path.join(SCREENSHOTS_DIR, relativePath);
-		if (!imgPath.startsWith(SCREENSHOTS_DIR) || !fs.existsSync(imgPath)) return null;
+		// + path.sep, like resolveFolder: a bare prefix check would let a
+		// crafted ../ path reach a sibling directory whose name merely starts
+		// with "screenshots".
+		if (!imgPath.startsWith(SCREENSHOTS_DIR + path.sep) || !fs.existsSync(imgPath)) return null;
 		return imgPath;
 	}
 
