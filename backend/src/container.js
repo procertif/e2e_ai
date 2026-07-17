@@ -7,7 +7,28 @@ const { loadRuntimeEnv } = require("./config/runtimeEnv");
 // replaces .env, and `ai` swaps the real Anthropic-backed AI for a fake.
 function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}) {
 	const paths = createPaths({ dataDir });
-	fs.mkdirSync(paths.TESTS_DIR, { recursive: true });
+	// Every data/ directory the app touches, created up front — a fresh
+	// deployment (empty data/ bind mount) must work without manual setup.
+	for (const dir of [
+		paths.DATA_DIR,
+		paths.VERSIONED_DIR,
+		paths.TESTS_DIR,
+		paths.GROUPS_DIR,
+		paths.SCENARIOS_DIR,
+		paths.CAMPAIGNS_DIR,
+		paths.PENDING_DIR,
+		paths.CORRECTIONS_DIR,
+		paths.CREATIONS_DIR,
+		paths.TEST_META_DIR,
+		paths.TEST_RESULTS_DIR,
+		paths.ACTION_TESTS_DIR,
+		paths.TESTED_REPOS_DIR,
+		paths.ENVIRONMENTS_DIR,
+		paths.CONFIG_DIR,
+		paths.SCREENSHOTS_DIR,
+	]) {
+		fs.mkdirSync(dir, { recursive: true });
+	}
 	const { envLocal, port, testRunner } = loadRuntimeEnv(envOverride);
 
 	const db = require("./core/db");
