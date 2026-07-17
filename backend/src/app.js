@@ -28,6 +28,7 @@ function createApp(container) {
 	api.use(require("./modules/testedRepo/testedRepo.controller")(container));
 	api.use(require("./modules/campaigns/campaigns.controller")(container));
 	api.use(require("./modules/corrections/corrections.controller")(container));
+	api.use(require("./modules/creations/creations.controller")(container));
 	api.use(require("./modules/testRuns/testRuns.controller")(container));
 	api.use(require("./modules/pending/pending.controller")(container));
 	api.use(require("./modules/scenarios/scenarios.controller")(container));

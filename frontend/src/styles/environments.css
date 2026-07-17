@@ -282,3 +282,9 @@
   color: #b8860b;
   font-weight: 600;
 }
+
+/* Page-level tabs on the Tests page (Création de test / File d'exécution) —
+   reuses the correction-tab look, just spaced from the panels below. */
+.tests-top-tabs {
+  margin-bottom: 1rem;
+}

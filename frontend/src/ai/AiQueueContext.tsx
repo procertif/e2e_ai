@@ -3,7 +3,7 @@ import { apiFetch, getToken } from "../api";
 
 export interface AiQueueTaskSummary {
   id: number;
-  kind: "conversation" | "correction" | "scenario";
+  kind: "conversation" | "correction" | "creation" | "scenario";
   targetKey: string;
   status: "queued" | "running";
   runId: string | null;
@@ -15,7 +15,8 @@ interface AiQueueContextValue {
   tasks: AiQueueTaskSummary[];
   paused: boolean;
   correctionsPaused: boolean;
-  findTask: (kind: "conversation" | "correction" | "scenario", targetKey: string) => AiQueueTaskSummary | undefined;
+  creationsPaused: boolean;
+  findTask: (kind: "conversation" | "correction" | "creation" | "scenario", targetKey: string) => AiQueueTaskSummary | undefined;
   refresh: () => Promise<void>;
   resume: () => Promise<void>;
 }
@@ -35,6 +36,8 @@ export function AiQueueProvider({ children }: { children: ReactNode }) {
   // Corrections-only pause (the Corrections page's batch Pause button) —
   // conversation tasks keep running while this is on.
   const [correctionsPaused, setCorrectionsPaused] = useState(false);
+  // Same, for the Tests page's creation batch.
+  const [creationsPaused, setCreationsPaused] = useState(false);
 
   const refresh = async () => {
     if (!getToken()) return; // logged out — provider remounts on login
@@ -45,6 +48,7 @@ export function AiQueueProvider({ children }: { children: ReactNode }) {
         setTasks(data.tasks);
         setPaused(data.paused === true);
         setCorrectionsPaused(data.correctionsPaused === true);
+        setCreationsPaused(data.creationsPaused === true);
       }
     } catch {}
   };
@@ -62,10 +66,10 @@ export function AiQueueProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  const findTask = (kind: "conversation" | "correction" | "scenario", targetKey: string) =>
+  const findTask = (kind: "conversation" | "correction" | "creation" | "scenario", targetKey: string) =>
     tasks.find((t) => t.kind === kind && t.targetKey === targetKey);
 
-  return <AiQueueContext.Provider value={{ tasks, paused, correctionsPaused, findTask, refresh, resume }}>{children}</AiQueueContext.Provider>;
+  return <AiQueueContext.Provider value={{ tasks, paused, correctionsPaused, creationsPaused, findTask, refresh, resume }}>{children}</AiQueueContext.Provider>;
 }
 
 export function useAiQueue() {

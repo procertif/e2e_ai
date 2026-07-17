@@ -4,7 +4,7 @@ const path = require("path");
 // Specs written by the AI land in data/pending/ first, awaiting a human
 // decision: confirm (promote to TESTS_DIR + register the scenario), discard,
 // or run (preview execution without confirming).
-module.exports = function createPendingService({ paths, scenariosRepo }) {
+module.exports = function createPendingService({ paths, scenariosRepo, testMeta }) {
 	const { PENDING_DIR, TESTS_DIR, ACTION_TESTS_DIR } = paths;
 
 	function specPath(testname) {
@@ -53,6 +53,7 @@ module.exports = function createPendingService({ paths, scenariosRepo }) {
 		fs.copyFileSync(specPath(testname), confirmedPath);
 		try { fs.chmodSync(confirmedPath, 0o640); } catch {} // restore group-read for e2erunner (umask 077 strips it)
 		fs.unlinkSync(specPath(testname));
+		testMeta.markCreated(testname);
 	}
 
 	function discard(testname) {

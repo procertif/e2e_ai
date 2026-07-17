@@ -22,6 +22,8 @@ function createPaths({ dataDir } = {}) {
 		CAMPAIGNS_DIR: path.join(VERSIONED_DIR, "campaigns"),
 		PENDING_DIR: path.join(DATA_DIR, "pending"),
 		CORRECTIONS_DIR: path.join(DATA_DIR, "corrections"),
+		CREATIONS_DIR: path.join(DATA_DIR, "creations"),
+		TEST_META_DIR: path.join(DATA_DIR, "testMeta"),
 		ACTION_TESTS_DIR: path.join(DATA_DIR, "actionTest"),
 		TESTED_REPOS_DIR: path.join(DATA_DIR, "testedRepositories"),
 		// Sibling to (not inside) versioned/ — environments hold plaintext

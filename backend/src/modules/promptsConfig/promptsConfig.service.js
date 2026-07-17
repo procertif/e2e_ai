@@ -3,15 +3,18 @@ const { readJson, writeJson } = require("../../core/jsonFiles");
 const {
 	DEFAULT_CLASSIC_INSTRUCTIONS,
 	DEFAULT_CORRECTION_INSTRUCTIONS,
+	DEFAULT_CREATION_INSTRUCTIONS,
 	DEFAULT_SCENARIO_INSTRUCTIONS,
 	classicSystemBlocks,
 	correctionSystemBlocks,
+	creationSystemBlocks,
 	scenarioSystemBlocks,
 } = require("../../ai/prompts");
 
 const DEFAULTS = {
 	classic: DEFAULT_CLASSIC_INSTRUCTIONS,
 	correction: DEFAULT_CORRECTION_INSTRUCTIONS,
+	creation: DEFAULT_CREATION_INSTRUCTIONS,
 	scenario: DEFAULT_SCENARIO_INSTRUCTIONS,
 };
 const KEYS = Object.keys(DEFAULTS);
@@ -59,6 +62,7 @@ module.exports = function createPromptsConfig({ CONFIG_DIR }) {
 		set,
 		classicBlocks: () => classicSystemBlocks(readOverrides().classic),
 		correctionBlocks: (filename) => correctionSystemBlocks(filename, readOverrides().correction),
+		creationBlocks: (filename) => creationSystemBlocks(filename, readOverrides().creation),
 		scenarioBlocks: (scenarioName) => scenarioSystemBlocks(scenarioName, readOverrides().scenario),
 	};
 };

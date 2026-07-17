@@ -1,5 +1,6 @@
 const { sanitizeToolUseHistory, capOversizedImages } = require("./history");
 const { correctionSystemBlocks } = require("./prompts");
+const { CORRECTION_TOOLS } = require("./tools/definitions");
 const { collectToolResults } = require("./toolLoop");
 
 // Lightweight sibling of the classic chat run, scoped to one test in
@@ -59,7 +60,7 @@ module.exports = function createCorrectionRun({ client, executeTool, registry, e
 
 			try {
 				while (continueLoop) {
-					const { stopReason, content } = await client.callClaudeStream(token, history, pushEvent, null, controller.signal, systemBlocks);
+					const { stopReason, content } = await client.callClaudeStream(token, history, pushEvent, null, controller.signal, systemBlocks, CORRECTION_TOOLS);
 					history.push({ role: "assistant", content });
 
 					if (stopReason === "tool_use") {

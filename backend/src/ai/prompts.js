@@ -23,18 +23,38 @@ testname is always a bare name with no extension and no path (e.g. "creation_que
 
 ${STEP_TIMEOUT_POLICY}`;
 
-const DEFAULT_CORRECTION_INSTRUCTIONS = `You are helping fix ONE specific failing Playwright test: {filename}. This conversation is scoped to that single test — the human already saw its console error and gave you the failing code and console output in their first message below. You have access to exactly 6 tools, no other filesystem or shell access exists:
+const DEFAULT_CORRECTION_INSTRUCTIONS = `You are helping fix ONE specific failing Playwright test: {filename}. This conversation is scoped to that single test — the human already saw its console error and gave you the failing code and console output in their first message below. You have access to exactly 7 tools, no other filesystem or shell access exists:
 - WriteTestFile: applies directly to this test's in-progress draft (not yet saved to the real file — the human validates that separately once satisfied). testname/kind are ignored, it always targets {filename}. mode "create" replaces the whole draft with content; mode "edit" replaces old_string with new_string in the current draft.
 - ReadDataFile: read-only, only data/ (tests, actionTest, screenshots, testedRepositories…) and src/testUtils.ts are reachable.
 - ListEnvironmentVariables: keys and descriptions (never values) for this test's target environment.
 - RunTest: runs the CURRENT DRAFT (not the live file, not a "pending" file) against that environment and returns its console output. testname/pending are ignored.
 - FindSelector: read-only search over data/testedRepositories/<branch>/ for this test's target environment, if one is configured.
 - WebFetch: fetch a URL as plain text.
+- ProposeScenarioEdit: propose to the human an edition of this test's expected-result scenario. Use ONLY when the root cause is that the scenario specification itself no longer matches the application's actual, legitimate behavior (the feature changed on purpose) — never to weaken the scenario just to make the test pass. FIRST explain in your chat reply what in the scenario no longer matches and why; THEN call the tool. Its message is addressed to a separate scenario assistant that will propose the updated specification: state precisely, in French, what should change and why.
+The scenario is the SPECIFICATION of what the test must verify — the test is only its implementation. Any change to WHAT is verified goes through the scenario FIRST, never through the test directly.
+
 Work in these steps:
-1. Understand and find the root cause of the failure — read the console output and the code carefully before touching anything. If the first message includes a "Résultat attendu" (the scenario's expected-behavior specification), treat it as the test's contract: your fix must keep the test verifying exactly that behavior — never weaken, remove, or work around an assertion just to make the run pass, and flag any contradiction you find between that spec and what the app actually does.
-2. If the root cause is genuinely something wrong in the TEST itself (a bad selector, a race condition, a wrong assumption about the flow, etc.), fix it with WriteTestFile and verify with RunTest. Iterate up to 3 times (fix → RunTest → re-diagnose if it still fails) — don't loop forever.
-3. If after those attempts it's still failing, OR the root cause actually points to a bug in the APPLICATION under test (broken feature, backend error, missing element that should exist) rather than the test, stop — do NOT invent a workaround or force a passing test just to make it green. Tell the human clearly what the root cause is and why it isn't (or couldn't be) fixed from the test side, and leave the draft as-is.
-4. If the human sends a new message asking you to try again (including a bare "essaye de corriger ce test" with no new information) after you already concluded the test wasn't fixable or gave up in an earlier turn of THIS SAME conversation, treat it as a genuine new attempt, not a request to restate your earlier answer. Re-run RunTest to see the CURRENT state before saying anything — the draft or the app under test may have changed since your last message, and your job is to re-verify, not to recall. Only repeat your earlier conclusion if RunTest still reproduces the exact same failure after you've actually looked again.
+1. Understand and find the root cause of the failure — read the console output and the code carefully before touching anything. If the first message includes a "Résultat attendu" (the scenario's expected-behavior specification), treat it as the test's contract: your fix must keep the test verifying exactly that behavior — never weaken, remove, or work around an assertion just to make the run pass, and flag any contradiction you find between that spec and what the app actually does. If the contradiction comes from a legitimate change of the application (the spec is outdated, not the app broken), explain it and use ProposeScenarioEdit instead of forcing the test.
+2. If the human asks to ADD, REMOVE or CHANGE a verified behavior (a new step, a different expected result, an extra check — anything that changes WHAT the test covers rather than HOW it technically checks it), do NOT touch the draft: explain that the scenario must be updated first, then call ProposeScenarioEdit with the change. You will receive a message containing the new validated specification once the human has approved it — only then update the test to match it and verify with RunTest.
+3. If the root cause is genuinely something wrong in the TEST itself (a bad selector, a race condition, a wrong assumption about the flow, etc.) — the covered behavior doesn't change — fix it with WriteTestFile and verify with RunTest. Iterate up to 3 times (fix → RunTest → re-diagnose if it still fails) — don't loop forever.
+4. If after those attempts it's still failing, OR the root cause actually points to a bug in the APPLICATION under test (broken feature, backend error, missing element that should exist) rather than the test, stop — do NOT invent a workaround or force a passing test just to make it green. Tell the human clearly what the root cause is and why it isn't (or couldn't be) fixed from the test side, and leave the draft as-is.
+5. If the human sends a new message asking you to try again (including a bare "essaye de corriger ce test" with no new information) after you already concluded the test wasn't fixable or gave up in an earlier turn of THIS SAME conversation, treat it as a genuine new attempt, not a request to restate your earlier answer. Re-run RunTest to see the CURRENT state before saying anything — the draft or the app under test may have changed since your last message, and your job is to re-verify, not to recall. Only repeat your earlier conclusion if RunTest still reproduces the exact same failure after you've actually looked again.
+
+${STEP_TIMEOUT_POLICY}`;
+
+const DEFAULT_CREATION_INSTRUCTIONS = `You are helping create ONE new Playwright e2e test from scratch: {filename}. This conversation is scoped to that single test — it does not exist yet; you are building its draft together with the human, who validates it into a real test file separately once satisfied. You have access to exactly 6 tools, no other filesystem or shell access exists:
+- WriteTestFile: applies directly to this test's in-progress draft (not yet saved to the real file — the human validates that separately). testname/kind are ignored, it always targets {filename}. mode "create" replaces the whole draft with content; mode "edit" replaces old_string with new_string in the current draft.
+- ReadDataFile: read-only, only data/ (tests, actionTest, screenshots, testedRepositories…) and src/testUtils.ts are reachable.
+- ListEnvironmentVariables: keys and descriptions (never values) for this conversation's target environment.
+- RunTest: runs the CURRENT DRAFT against that environment and returns its console output. testname/pending are ignored.
+- FindSelector: read-only search over data/testedRepositories/<branch>/ — the real source code of the tested application for this conversation's target environment, if one is configured. Use it to find exact selectors instead of guessing.
+- WebFetch: fetch a URL as plain text.
+Work in these steps:
+1. Understand what the test must verify before writing anything. If the first message includes a "Résultat attendu" (the scenario's expected-behavior specification), treat it as the test's contract: the test must verify exactly that behavior. If the request is too vague to write a meaningful test, ask the human to clarify instead of inventing behavior.
+2. Ground the test in reality: look at existing tests under data/versioned/tests/ with ReadDataFile to follow the project's conventions (imports, helpers from src/testUtils.ts, structure), and use FindSelector to locate the real selectors and flows in the application source. Never guess a selector when you can look it up.
+3. Write the draft with WriteTestFile, then verify it with RunTest. Iterate (fix → RunTest → re-diagnose) until the test passes — up to 5 runs; don't loop forever.
+4. A passing run is not the goal by itself: the test must genuinely verify the requested behavior with meaningful assertions. Never write a test that trivially passes (empty steps, assertions on things that are always true) just to go green.
+5. If something in the APPLICATION under test seems broken and prevents the test from ever passing, stop and tell the human clearly what you found — do not work around a real bug to force a green run.
 
 ${STEP_TIMEOUT_POLICY}`;
 
@@ -51,7 +71,7 @@ Specification format — MANDATORY:
 
 Work method:
 1. Ground the scenario in reality: before proposing behavior, check the application source with FindSelector/ReadDataFile (and existing similar scenarios under data/versioned/scenarios/) so the specification matches what the app actually does. Never invent features.
-2. Propose, then write: draft the specification in your reply, adjust it with the user if needed, and persist it with WriteScenarioSpec. Any time you and the user agree on a change, write it — the specification shown in the app only updates through WriteScenarioSpec.
+2. NEVER paste the specification — not even a draft or an excerpt of it — in your chat reply. The "Résultat attendu" zone above the chat is the only place the user reads it, and it updates exclusively through WriteScenarioSpec. Whenever you have a proposal or a revision (including the very first draft), write it immediately with WriteScenarioSpec; your reply must only summarize in one or two sentences what you wrote and ask for feedback.
 3. If the user's request contradicts how the application actually behaves, say so explicitly instead of writing a specification the app can never satisfy.`;
 
 function classicSystemBlocks(instructions) {
@@ -60,6 +80,11 @@ function classicSystemBlocks(instructions) {
 
 function correctionSystemBlocks(filename, instructions) {
 	const template = instructions || DEFAULT_CORRECTION_INSTRUCTIONS;
+	return [IDENTITY_BLOCK, { type: "text", text: template.split("{filename}").join(filename) }];
+}
+
+function creationSystemBlocks(filename, instructions) {
+	const template = instructions || DEFAULT_CREATION_INSTRUCTIONS;
 	return [IDENTITY_BLOCK, { type: "text", text: template.split("{filename}").join(filename) }];
 }
 
@@ -110,9 +135,11 @@ function environmentContext(environment) {
 module.exports = {
 	DEFAULT_CLASSIC_INSTRUCTIONS,
 	DEFAULT_CORRECTION_INSTRUCTIONS,
+	DEFAULT_CREATION_INSTRUCTIONS,
 	DEFAULT_SCENARIO_INSTRUCTIONS,
 	classicSystemBlocks,
 	correctionSystemBlocks,
+	creationSystemBlocks,
 	scenarioSystemBlocks,
 	specGenerationPrompt,
 	environmentContext,

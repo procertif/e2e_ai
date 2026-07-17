@@ -32,6 +32,11 @@ interface QueueContextValue {
   runQueue: () => Promise<void>;
   resetQueue: () => void;
   isAnyRunning: boolean;
+  queueRunning: boolean;
+  queuePaused: boolean;
+  pauseQueue: () => void;
+  resumeQueue: () => void;
+  stopQueue: () => void;
   createCampaign: (title?: string) => Promise<void>;
 }
 
@@ -52,6 +57,13 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     }
   });
   const [resultsModal, setResultsModal] = useState<ResultsModalData | null>(null);
+  // Queue-run controls: the run loop checks these between tests — pause
+  // holds the NEXT test back, stop ends the loop after the current test
+  // finishes (an in-flight Playwright run isn't interrupted).
+  const [queueRunning, setQueueRunning] = useState(false);
+  const [queuePaused, setQueuePaused] = useState(false);
+  const pausedRef = useRef(false);
+  const stopRef = useRef(false);
 
   const statusRef = useRef<Record<string, string>>({});
   const outputRef = useRef<Record<string, string>>({});
@@ -220,12 +232,45 @@ export function QueueProvider({ children }: { children: ReactNode }) {
 
   const runQueue = async () => {
     const sessionTests = queue;
-    if (sessionTests.length === 0) return;
+    if (sessionTests.length === 0 || queueRunning) return;
     const startTime = Date.now();
-    for (const tst of sessionTests) {
-      await runTest(tst);
+    setQueueRunning(true);
+    setQueuePaused(false);
+    pausedRef.current = false;
+    stopRef.current = false;
+    const launched: Test[] = [];
+    try {
+      for (const tst of sessionTests) {
+        while (pausedRef.current && !stopRef.current) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        if (stopRef.current) break;
+        launched.push(tst);
+        await runTest(tst);
+      }
+    } finally {
+      setQueueRunning(false);
+      setQueuePaused(false);
+      pausedRef.current = false;
+      stopRef.current = false;
     }
-    await showResultsModal(sessionTests, Date.now() - startTime);
+    if (launched.length > 0) await showResultsModal(launched, Date.now() - startTime);
+  };
+
+  const pauseQueue = () => {
+    pausedRef.current = true;
+    setQueuePaused(true);
+  };
+
+  const resumeQueue = () => {
+    pausedRef.current = false;
+    setQueuePaused(false);
+  };
+
+  const stopQueue = () => {
+    stopRef.current = true;
+    pausedRef.current = false;
+    setQueuePaused(false);
   };
 
   const isAnyRunning = queue.some((tst) => statusRef.current[tst.filename] === "running");
@@ -258,6 +303,11 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     runQueue,
     resetQueue,
     isAnyRunning,
+    queueRunning,
+    queuePaused,
+    pauseQueue,
+    resumeQueue,
+    stopQueue,
     createCampaign,
   };
 

@@ -9,7 +9,7 @@ module.exports = function createAiQueueController({ aiQueue }) {
 	// queued/running for this filename/conversation right now" after a reload
 	// or a tab switch.
 	router.get("/ai-queue", async (req, res) => {
-		res.json({ paused: aiQueue.isPaused(), correctionsPaused: aiQueue.isCorrectionsPaused(), tasks: await aiQueue.list() });
+		res.json({ paused: aiQueue.isPaused(), correctionsPaused: aiQueue.isCorrectionsPaused(), creationsPaused: aiQueue.isCreationsPaused(), tasks: await aiQueue.list() });
 	});
 
 	// The queue pauses itself at startup when tasks were stranded by the last
@@ -30,6 +30,17 @@ module.exports = function createAiQueueController({ aiQueue }) {
 	router.post("/ai-queue/corrections-resume", (req, res) => {
 		aiQueue.resumeCorrections();
 		res.json({ correctionsPaused: aiQueue.isCorrectionsPaused() });
+	});
+
+	// Same, for creation-kind tasks (the Tests page's creation batch).
+	router.post("/ai-queue/creations-pause", (req, res) => {
+		aiQueue.pauseCreations();
+		res.json({ creationsPaused: aiQueue.isCreationsPaused() });
+	});
+
+	router.post("/ai-queue/creations-resume", (req, res) => {
+		aiQueue.resumeCreations();
+		res.json({ creationsPaused: aiQueue.isCreationsPaused() });
 	});
 
 	router.get("/ai-queue/:id", async (req, res) => {

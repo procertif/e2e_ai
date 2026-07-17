@@ -22,6 +22,10 @@ const app = createApp(container);
 const specDebounce = new Map();
 fs.watch(container.paths.TESTS_DIR, (eventType, filename) => {
 	if (!filename || !filename.endsWith(".spec.ts")) return;
+	// "_"-prefixed specs are ephemeral copies made for a single run
+	// (_correction_*, _pending_*…) — generating a spec for them pollutes the
+	// scenarios store with orphans.
+	if (filename.startsWith("_")) return;
 	const testname = filename.replace(".spec.ts", "");
 	clearTimeout(specDebounce.get(testname));
 	specDebounce.set(testname, setTimeout(() => {

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-module.exports = function createTestsService({ db, paths, scenariosRepo, groupsService }) {
+module.exports = function createTestsService({ db, paths, scenariosRepo, groupsService, testMeta }) {
 	const { TESTS_DIR, SCREENSHOTS_DIR, PENDING_DIR } = paths;
 
 	async function loadAliases() {
@@ -76,12 +76,23 @@ module.exports = function createTestsService({ db, paths, scenariosRepo, groupsS
 			.filter((f) => f.endsWith(".spec.ts"))
 			.map((filename) => {
 				const testkey = filename.replace(".spec.ts", "");
-				return describeTest(testkey, {
-					filename,
-					alias: aliases[testkey] || null,
-					env: testEnvironments[testkey] || { environmentId: null, environmentName: null },
-					history,
-				});
+				// ensure() lazily backfills tests that predate the metadata store
+				// (createdAt/updatedAt initialized to "now", run fields empty).
+				const meta = testMeta.ensure(testkey);
+				return {
+					...describeTest(testkey, {
+						filename,
+						alias: aliases[testkey] || null,
+						env: testEnvironments[testkey] || { environmentId: null, environmentName: null },
+						history,
+					}),
+					createdAt: meta.createdAt,
+					updatedAt: meta.updatedAt,
+					lastSuccessMs: meta.lastSuccessMs ?? null,
+					lastSuccessAt: meta.lastSuccessAt ?? null,
+					lastEnvironmentId: meta.lastEnvironmentId ?? null,
+					lastEnvironmentName: meta.lastEnvironmentName ?? null,
+				};
 			})
 			.sort((a, b) => a.filename.localeCompare(b.filename));
 	}
@@ -97,6 +108,7 @@ module.exports = function createTestsService({ db, paths, scenariosRepo, groupsS
 		}
 		try { fs.unlinkSync(path.join(PENDING_DIR, filename)); } catch {}
 		scenariosRepo.remove(testkey);
+		testMeta.remove(testkey);
 		await db.testPrompt.deleteMany({ where: { testname: testkey } });
 		groupsService.removeTestFromAllGroups(filename);
 		await db.runHistory.deleteMany({ where: { filename } });

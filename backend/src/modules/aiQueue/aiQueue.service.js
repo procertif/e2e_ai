@@ -5,14 +5,15 @@
 // status lives in the database, not in whichever browser tab/component
 // happened to start it — switching app tabs, browser tabs, or reloading
 // entirely no longer loses track of what the AI is doing.
-module.exports = function createAiQueueService({ db, ai, corrections, scenariosRepo }) {
+module.exports = function createAiQueueService({ db, ai, corrections, creations, scenariosRepo }) {
 	let active = null; // { id, kind, targetKey, runId }
 	let watchTimer = null;
 	let paused = false;
-	// Separate from `paused` (the whole-queue restart safety) — this only
-	// holds back correction-kind tasks, so pausing a correction batch doesn't
-	// also freeze the user's normal Conversation chat.
+	// Separate from `paused` (the whole-queue restart safety) — these only
+	// hold back their own kind of task, so pausing a correction or creation
+	// batch doesn't also freeze the user's normal Conversation chat.
 	let correctionsPaused = false;
+	let creationsPaused = false;
 
 	function parseImages(row) {
 		return row.imagesJson ? JSON.parse(row.imagesJson) : null;
@@ -23,12 +24,17 @@ module.exports = function createAiQueueService({ db, ai, corrections, scenariosR
 			if (!corrections.get(row.targetKey)) throw new Error("Test no longer in correction.");
 			return ai.startCorrectionChatRun(row.targetKey, row.message, parseImages(row), row.environmentId ?? null);
 		}
+		if (row.kind === "creation") {
+			if (!creations?.get(row.targetKey)) throw new Error("Test no longer in creation.");
+			return ai.startCreationChatRun(row.targetKey, row.message, parseImages(row), row.environmentId ?? null);
+		}
 		if (row.kind === "scenario") {
 			if (!scenariosRepo?.get(row.targetKey)) throw new Error("Unknown scenario.");
 			return ai.startScenarioChatRun(row.targetKey, row.message, parseImages(row), row.environmentId ?? null);
 		}
-		const seedHistory = row.seedHistoryJson ? JSON.parse(row.seedHistoryJson) : null;
-		return ai.startChatRun(row.message, parseImages(row), row.targetKey || null, row.instructions || null, row.environmentId ?? null, seedHistory);
+		// The standalone "conversation" kind is gone with the Conversation page
+		// — a leftover queued row from before just gets dropped by tickOnce.
+		throw new Error(`Unsupported task kind: ${row.kind}`);
 	}
 
 	// Polls the AI's in-memory run map rather than threading a completion
@@ -59,7 +65,10 @@ module.exports = function createAiQueueService({ db, ai, corrections, scenariosR
 
 	async function tickOnce() {
 		if (paused || active) return;
-		const where = correctionsPaused ? { status: "queued", kind: { not: "correction" } } : { status: "queued" };
+		const excludedKinds = [];
+		if (correctionsPaused) excludedKinds.push("correction");
+		if (creationsPaused) excludedKinds.push("creation");
+		const where = excludedKinds.length ? { status: "queued", kind: { notIn: excludedKinds } } : { status: "queued" };
 		const next = await db.aiQueueTask.findFirst({ where, orderBy: { createdAt: "asc" } });
 		if (!next) return;
 
@@ -183,6 +192,35 @@ module.exports = function createAiQueueService({ db, ai, corrections, scenariosR
 		tick();
 	}
 
+	// Creation-kind twin of the corrections pause/stop — same semantics.
+	function isCreationsPaused() {
+		return creationsPaused;
+	}
+
+	function pauseCreations() {
+		creationsPaused = true;
+	}
+
+	function resumeCreations() {
+		if (!creationsPaused) return;
+		creationsPaused = false;
+		tick();
+	}
+
+	async function cancelCreations() {
+		const { count } = await db.aiQueueTask.deleteMany({ where: { kind: "creation", status: "queued" } });
+		let abortedRunning = false;
+		if (active?.kind === "creation") {
+			const run = ai.getChatRun(active.runId);
+			if (run && typeof run.abort === "function") {
+				run.abort();
+				abortedRunning = true;
+			}
+		}
+		creationsPaused = false;
+		return { cancelledQueued: count, abortedRunning };
+	}
+
 	// "Arrêter" for the whole corrections batch: drop every queued correction
 	// task and abort the one currently running (its run stops at the next
 	// abortable point — an in-flight RunTest still runs to completion first).
@@ -216,5 +254,5 @@ module.exports = function createAiQueueService({ db, ai, corrections, scenariosR
 		}
 	})();
 
-	return { enqueue, list, get, cancel, isPaused, resume, isCorrectionsPaused, pauseCorrections, resumeCorrections, cancelCorrections };
+	return { enqueue, list, get, cancel, isPaused, resume, isCorrectionsPaused, pauseCorrections, resumeCorrections, cancelCorrections, isCreationsPaused, pauseCreations, resumeCreations, cancelCreations };
 };

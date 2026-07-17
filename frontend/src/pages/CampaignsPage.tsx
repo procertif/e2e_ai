@@ -178,7 +178,7 @@ export default function CampaignsPage() {
       const res = await apiFetch(`/api/campaigns/${campaign.id}/correction`, { method: "POST" });
       if (res.ok) {
         const tests: { filename: string }[] = await res.json();
-        navigate(tests[0] ? `/corrections?filename=${encodeURIComponent(tests[0].filename)}` : "/corrections");
+        navigate(tests[0] ? `/?tab=corrections&filename=${encodeURIComponent(tests[0].filename)}` : "/?tab=corrections");
       }
     } finally {
       setProposingCorrection(false);

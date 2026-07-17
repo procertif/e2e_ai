@@ -19,7 +19,7 @@ module.exports = function createTestRunsController({ testRuns, environmentsRepo,
 		const environmentId = req.body?.environmentId != null ? Number(req.body.environmentId) : null;
 		const environment = Number.isInteger(environmentId) ? environmentsRepo.get(environmentId) : null;
 		const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl.trim() : "";
-		const runId = testRuns.startTestRun(filename, baseUrl || undefined, environment?.variables);
+		const runId = testRuns.startTestRun(filename, baseUrl || undefined, environment);
 		res.json({ runId });
 	});
 

@@ -200,7 +200,25 @@ function TurnBlocks({
   );
 }
 
-export default function CorrectionChatPanel({ filename, onUpdate }: { filename: string; onUpdate?: () => void }) {
+// kind/apiBase make the same panel serve both draft-based chats: test
+// corrections (default) and test creations (kind="creation",
+// apiBase="/api/creations") — the two backends expose the same
+// entry/chat/queue contract.
+export default function CorrectionChatPanel({
+  filename,
+  onUpdate,
+  kind = "correction",
+  apiBase = "/api/corrections",
+  emptyHintKey = "correction_chat_empty",
+  placeholderKey = "correction_chat_placeholder",
+}: {
+  filename: string;
+  onUpdate?: () => void;
+  kind?: "correction" | "creation";
+  apiBase?: string;
+  emptyHintKey?: string;
+  placeholderKey?: string;
+}) {
   const { t } = useI18n();
   const { findTask } = useAiQueue();
   const { selectedId: selectedEnvironmentId } = useEnvironment();
@@ -236,7 +254,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
   const sending = liveBlocks !== null || queuePosition !== null;
 
   const loadHistory = async () => {
-    const res = await apiFetch("/api/corrections/" + encodeURIComponent(filename));
+    const res = await apiFetch(apiBase + "/" + encodeURIComponent(filename));
     if (res.ok) {
       const data = await res.json();
       setTurns(rawToTurns(data.chatMessages || []));
@@ -287,7 +305,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
   // Reattach to whatever's active for this test on every queue poll — a
   // bulk-correction pass, a message from another tab, or one already in
   // flight when this component (re)mounts, all look the same from here.
-  const activeTask = findTask("correction", filename);
+  const activeTask = findTask(kind, filename);
   useEffect(() => {
     if (!activeTask) return;
     if (activeTask.status === "running" && activeTask.runId) attachToRun(activeTask.runId);
@@ -308,7 +326,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
     cancelledWait.current = false;
     setTurns((prev) => [...(prev || []), { role: "user", blocks: [{ type: "text", text: message }] }]);
     try {
-      const res = await apiFetch(`/api/corrections/${encodeURIComponent(forFilename)}/chat`, {
+      const res = await apiFetch(`${apiBase}/${encodeURIComponent(forFilename)}/chat`, {
         method: "POST",
         body: JSON.stringify({ message, environmentId: selectedEnvironmentId }),
       });
@@ -351,7 +369,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
     <div className="correction-chat">
       <div className="correction-chat-messages" ref={messagesRef}>
         {turns === null && <p className="correction-chat-hint">{t("loading")}</p>}
-        {turns?.length === 0 && !liveBlocks && queuePosition === null && <p className="correction-chat-hint">{t("correction_chat_empty")}</p>}
+        {turns?.length === 0 && !liveBlocks && queuePosition === null && <p className="correction-chat-hint">{t(emptyHintKey)}</p>}
         {turns?.map((turn, i) => (
           <div className={"correction-chat-turn correction-chat-turn--" + turn.role} key={i}>
             <TurnBlocks filename={filename} blocks={turn.blocks} live={false} collapsedTools={collapsedTools} onToggleTool={toggleTool} turnKey={"h" + i} titles={titles} />
@@ -377,7 +395,7 @@ export default function CorrectionChatPanel({ filename, onUpdate }: { filename: 
         <textarea
           className="form-control"
           rows={2}
-          placeholder={t("correction_chat_placeholder")}
+          placeholder={t(placeholderKey)}
           value={input}
           disabled={sending}
           onChange={(e) => setInput(e.target.value)}

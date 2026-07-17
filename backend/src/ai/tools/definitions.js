@@ -93,9 +93,29 @@ const WRITE_SCENARIO_SPEC = {
 	},
 };
 
+// Correction-only: lets the correction AI hand off to the scenario
+// assistant when the failure's root cause is an outdated expected-result
+// spec. It does NOT modify the scenario — it surfaces a banner in the UI;
+// the human decides whether to open the scenario editor, where `message`
+// becomes the first instruction sent to the scenario assistant.
+const PROPOSE_SCENARIO_EDIT = {
+	name: "ProposeScenarioEdit",
+	description:
+		"Propose an edition of this test's expected-result scenario to the human. Use ONLY when the failure's root cause is that the scenario specification no longer matches the application's actual (and legitimate) behavior — never to weaken a scenario just to make the test pass. Before calling this, your chat reply must have explained what in the scenario no longer matches and why. `message` is addressed to the scenario assistant (a separate AI conversation): describe precisely what should change in the specification and why, in French.",
+	input_schema: {
+		type: "object",
+		properties: {
+			message: { type: "string", description: "Instruction for the scenario assistant: what to change in the specification and why (French)" },
+		},
+		required: ["message"],
+	},
+};
+
 const byName = (name) => CLASSIC_TOOLS.find((t) => t.name === name);
 const SCENARIO_TOOLS = [WRITE_SCENARIO_SPEC, byName("ReadDataFile"), byName("FindSelector"), byName("WebFetch")];
+const CORRECTION_TOOLS = [...CLASSIC_TOOLS, PROPOSE_SCENARIO_EDIT];
 
 module.exports = CLASSIC_TOOLS;
 module.exports.CLASSIC_TOOLS = CLASSIC_TOOLS;
 module.exports.SCENARIO_TOOLS = SCENARIO_TOOLS;
+module.exports.CORRECTION_TOOLS = CORRECTION_TOOLS;

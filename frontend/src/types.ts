@@ -7,6 +7,12 @@ export interface Test {
   estimatedMs?: number;
   environmentId?: number | null;
   environmentName?: string | null;
+  createdAt?: number;
+  updatedAt?: number;
+  lastSuccessMs?: number | null;
+  lastSuccessAt?: number | null;
+  lastEnvironmentId?: number | null;
+  lastEnvironmentName?: string | null;
 }
 
 export interface Group {
@@ -82,6 +88,25 @@ export interface PendingCorrection extends PendingCorrectionSummary {
   consoleOutput: string;
   environmentId: number | null;
   environmentName: string | null;
+  chatMessages: unknown[];
+  scenarioEditProposal?: { message: string; createdAt: number } | null;
+}
+
+export interface PendingCreationSummary {
+  filename: string;
+  title: string | null;
+  createdAt: number;
+  environmentId: number | null;
+  aiEdited: boolean;
+  userEdited: boolean;
+  hasDraft: boolean;
+  lastRunStatus: "passed" | "failed" | null;
+  scenarioValidated: boolean;
+}
+
+export interface PendingCreation extends PendingCreationSummary {
+  draftContent: string;
+  consoleOutput: string;
   chatMessages: unknown[];
 }
 

@@ -1,51 +1,12 @@
 const express = require("express");
 const { openEventStream, writeEvent } = require("../../core/http/sse");
-const { environmentContext } = require("../../ai/prompts");
 
-module.exports = function createChatController({ chatService, environmentsRepo, aiQueue, ai }) {
+module.exports = function createChatController({ chatService, ai }) {
 	const router = express.Router();
 
-	router.post("/chat", async (req, res) => {
-		try {
-			const { message, images, sessionId, instructions, environmentId, seedHistory } = req.body;
-			const hasImages = Array.isArray(images) && images.length > 0;
-			if (!hasImages && (!message || typeof message !== "string" || !message.trim())) {
-				res.status(400).send("Message required");
-				return;
-			}
-			const envId = Number(environmentId);
-			if (!Number.isInteger(envId)) {
-				res.status(400).send("environmentId required");
-				return;
-			}
-			const environment = environmentsRepo.get(envId);
-			if (!environment) {
-				res.status(400).send("Environment not found");
-				return;
-			}
-			const mergedInstructions = [environmentContext(environment), instructions].filter(Boolean).join("\n\n") || null;
-			const task = await aiQueue.enqueue({
-				kind: "conversation",
-				targetKey: sessionId || null,
-				message: (message || "").trim(),
-				images: hasImages ? images : null,
-				instructions: mergedInstructions,
-				environmentId: envId,
-				seedHistory: Array.isArray(seedHistory) ? seedHistory : null,
-			});
-			res.json({ taskId: task.id, status: task.status, runId: task.runId });
-		} catch {
-			res.status(400).send("Bad request");
-		}
-	});
-
-	router.get("/conversations", async (req, res) => {
-		try {
-			res.json(await chatService.listConversations());
-		} catch (err) {
-			res.status(500).send(err.message);
-		}
-	});
+	// The standalone Conversation page is gone — this module now only serves
+	// the shared run streaming (/chat-stream, /chat-stop, reachable from
+	// corrections/creations/scenario chats) and the chat-log history page.
 
 	router.get("/chat-logs", async (req, res) => {
 		try {
@@ -77,20 +38,6 @@ module.exports = function createChatController({ chatService, environmentsRepo, 
 		}
 		await chatService.deleteChatLog(id);
 		res.sendStatus(204);
-	});
-
-	router.post("/chat-save", async (req, res) => {
-		try {
-			const { filename, messages } = req.body;
-			if (!filename || !Array.isArray(messages)) {
-				res.status(400).send("Invalid payload");
-				return;
-			}
-			const safe = await chatService.saveChat(filename, messages);
-			res.json({ ok: true, filename: safe });
-		} catch (err) {
-			res.status(500).send(err.message);
-		}
 	});
 
 	router.post("/chat-stop/:runId", (req, res) => {

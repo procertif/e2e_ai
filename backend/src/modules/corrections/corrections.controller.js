@@ -1,6 +1,6 @@
 const express = require("express");
 
-module.exports = function createCorrectionsController({ corrections, aiQueue }) {
+module.exports = function createCorrectionsController({ corrections, aiQueue, environmentsRepo, scenariosRepo }) {
 	const router = express.Router();
 
 	function parseEnvironmentId(value) {
@@ -9,6 +9,23 @@ module.exports = function createCorrectionsController({ corrections, aiQueue }) 
 
 	router.get("/corrections", (req, res) => {
 		res.json(corrections.list());
+	});
+
+	// Send one test to correction from the execution queue — no campaign
+	// involved; the caller passes the last run's console output if it has one.
+	router.post("/corrections", (req, res) => {
+		try {
+			const { filename, consoleOutput, environmentId } = req.body || {};
+			const envId = parseEnvironmentId(environmentId);
+			const entry = corrections.createForTest(String(filename || ""), {
+				consoleOutput: typeof consoleOutput === "string" ? consoleOutput : "",
+				environmentId: envId,
+				environmentName: envId != null ? environmentsRepo.get(envId)?.name ?? null : null,
+			});
+			res.status(201).json(entry);
+		} catch (err) {
+			res.status(400).send(err.message);
+		}
 	});
 
 	router.get("/corrections/:filename", (req, res) => {
@@ -69,6 +86,59 @@ module.exports = function createCorrectionsController({ corrections, aiQueue }) 
 
 	router.post("/corrections/batch-stop", async (req, res) => {
 		res.json(await aiQueue.cancelCorrections());
+	});
+
+	// The scenario-edit proposal banner's two outcomes. Accept opens the
+	// handoff: the correction AI's message becomes the first instruction of a
+	// scenario-assistant task (the UI switches to the scenario editor and
+	// attaches to it); either way the proposal is cleared.
+	router.post("/corrections/:filename/accept-scenario-edit", async (req, res) => {
+		try {
+			const entry = corrections.get(req.params.filename);
+			if (!entry?.scenarioEditProposal?.message) { res.status(400).send("No pending scenario-edit proposal."); return; }
+			const testname = req.params.filename.replace(/\.spec\.ts$/, "");
+			// The scenario task would be silently dropped by the queue if no
+			// scenario record exists — register an empty one instead so the
+			// assistant can write the spec from scratch.
+			if (!scenariosRepo.get(testname)) scenariosRepo.upsert(testname, { spec: "" });
+			const task = await aiQueue.enqueue({
+				kind: "scenario",
+				targetKey: testname,
+				message: entry.scenarioEditProposal.message,
+				environmentId: parseEnvironmentId(req.body?.environmentId) ?? entry.environmentId ?? null,
+			});
+			corrections.setScenarioEditProposal(req.params.filename, null);
+			res.json({ taskId: task.id, status: task.status, runId: task.runId });
+		} catch (err) {
+			res.status(400).send(err.message);
+		}
+	});
+
+	router.post("/corrections/:filename/dismiss-scenario-edit", (req, res) => {
+		corrections.setScenarioEditProposal(req.params.filename, null);
+		res.sendStatus(204);
+	});
+
+	// Called when the user validates the edited scenario (exit of the
+	// scenario-edition stage): automatically tells the correction AI that the
+	// specification changed — with its new content, since the spec is only
+	// injected on the conversation's first turn — so it updates the test.
+	router.post("/corrections/:filename/scenario-updated", async (req, res) => {
+		try {
+			const entry = corrections.get(req.params.filename);
+			if (!entry) { res.status(404).send("Not found"); return; }
+			const spec = scenariosRepo.get(req.params.filename.replace(/\.spec\.ts$/, ""))?.spec || "";
+			const message = `[Contexte automatique] Le scénario (résultat attendu) de ce test vient d'être modifié et validé par l'utilisateur. Nouvelle spécification :\n\`\`\`\n${spec}\n\`\`\`\nMets à jour le test pour qu'il vérifie exactement ce nouveau comportement, puis vérifie avec RunTest.`;
+			const task = await aiQueue.enqueue({
+				kind: "correction",
+				targetKey: req.params.filename,
+				message,
+				environmentId: parseEnvironmentId(req.body?.environmentId) ?? entry.environmentId ?? null,
+			});
+			res.json({ taskId: task.id, status: task.status, runId: task.runId });
+		} catch (err) {
+			res.status(400).send(err.message);
+		}
 	});
 
 	// Chat scoped to one test in correction — enqueued on the same global AI

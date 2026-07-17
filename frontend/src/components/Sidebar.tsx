@@ -4,11 +4,7 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
   faListCheck,
   faFlagCheckered,
-  faPenToSquare,
-  faCamera,
   faFolderOpen,
-  faListOl,
-  faCommentDots,
   faWandMagicSparkles,
   faGlobe,
   faArrowsRotate,
@@ -19,11 +15,7 @@ import { useI18n } from "../i18n/I18nContext";
 const NAV_ITEMS: { to: string; end?: boolean; i18nKey: string; icon: IconDefinition }[] = [
   { to: "/", end: true, i18nKey: "nav_tests", icon: faListCheck },
   { to: "/campaigns", i18nKey: "nav_campaigns", icon: faFlagCheckered },
-  { to: "/corrections", i18nKey: "nav_corrections", icon: faPenToSquare },
-  { to: "/screenshots", i18nKey: "nav_screenshots", icon: faCamera },
   { to: "/groups", i18nKey: "nav_groups", icon: faFolderOpen },
-  { to: "/scenarios", i18nKey: "nav_scenarios", icon: faListOl },
-  { to: "/chat", i18nKey: "nav_chat", icon: faCommentDots },
   { to: "/logs", i18nKey: "nav_logs", icon: faWandMagicSparkles },
   { to: "/environments", i18nKey: "nav_environments", icon: faGlobe },
   { to: "/versioning", i18nKey: "nav_versioning", icon: faArrowsRotate },

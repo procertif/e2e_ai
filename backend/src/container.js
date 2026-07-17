@@ -17,7 +17,9 @@ function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}
 	const groupsRepo = require("./modules/groups/groups.repository")({ GROUPS_DIR: paths.GROUPS_DIR });
 	const scenariosRepo = require("./modules/scenarios/scenarios.repository")({ SCENARIOS_DIR: paths.SCENARIOS_DIR });
 	const campaignsRepo = require("./modules/campaigns/campaigns.repository")({ CAMPAIGNS_DIR: paths.CAMPAIGNS_DIR });
-	const corrections = require("./modules/corrections/corrections.repository")({ TESTS_DIR: paths.TESTS_DIR, CORRECTIONS_DIR: paths.CORRECTIONS_DIR });
+	const testMeta = require("./modules/testMeta/testMeta.service")({ TEST_META_DIR: paths.TEST_META_DIR });
+	const corrections = require("./modules/corrections/corrections.repository")({ TESTS_DIR: paths.TESTS_DIR, CORRECTIONS_DIR: paths.CORRECTIONS_DIR, testMeta });
+	const creations = require("./modules/creations/creations.repository")({ TESTS_DIR: paths.TESTS_DIR, CREATIONS_DIR: paths.CREATIONS_DIR, testMeta });
 
 	const testedRepo = require("./modules/testedRepo/testedRepo.service")({ TESTED_REPOS_DIR: paths.TESTED_REPOS_DIR, envLocal });
 	const versionedRepo = require("./modules/versionedRepo/versionedRepo.service")({ VERSIONED_DIR: paths.VERSIONED_DIR, envLocal });
@@ -25,10 +27,10 @@ function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}
 	const groupsService = require("./modules/groups/groups.service")({ groupsRepo });
 	const environmentsService = require("./modules/environments/environments.service")({ environmentsRepo, testedRepo });
 	const campaignsService = require("./modules/campaigns/campaigns.service")({ campaignsRepo });
-	const testsService = require("./modules/tests/tests.service")({ db, paths, scenariosRepo, groupsService });
+	const testsService = require("./modules/tests/tests.service")({ db, paths, scenariosRepo, groupsService, testMeta });
 	const screenshotsService = require("./modules/screenshots/screenshots.service")({ SCREENSHOTS_DIR: paths.SCREENSHOTS_DIR, testsService });
-	const testRuns = require("./modules/testRuns/testRuns.service")({ paths, envLocal, testRunner, testsService });
-	const pendingService = require("./modules/pending/pending.service")({ paths, scenariosRepo });
+	const testRuns = require("./modules/testRuns/testRuns.service")({ paths, envLocal, testRunner, testsService, testMeta });
+	const pendingService = require("./modules/pending/pending.service")({ paths, scenariosRepo, testMeta });
 	const chatService = require("./modules/chat/chat.service")({ db });
 	const promptsConfig = require("./modules/promptsConfig/promptsConfig.service")({ CONFIG_DIR: paths.CONFIG_DIR });
 
@@ -40,11 +42,12 @@ function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}
 		environments: environmentsRepo,
 		scenarios: scenariosRepo,
 		corrections,
+		creations,
 		testedRepo,
 		promptsConfig,
 	});
 
-	const aiQueue = require("./modules/aiQueue/aiQueue.service")({ db, ai, corrections, scenariosRepo });
+	const aiQueue = require("./modules/aiQueue/aiQueue.service")({ db, ai, corrections, creations, scenariosRepo });
 
 	return {
 		paths,
@@ -61,6 +64,8 @@ function createContainer({ dataDir, envLocal: envOverride, ai: aiOverride } = {}
 		campaignsRepo,
 		campaignsService,
 		corrections,
+		creations,
+		testMeta,
 		testedRepo,
 		versionedRepo,
 		testsService,

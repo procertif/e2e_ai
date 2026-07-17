@@ -62,3 +62,21 @@ export function escHtml(s: unknown) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+const GHERKIN_KEYWORDS = ["Étant donné", "Étant donnés", "Étant données", "Quand", "Lorsque", "Alors", "Et", "Mais"];
+
+// Escaped HTML with the Gherkin keywords wrapped in .spec-keyword — the
+// "Résultat attendu" rendering shared by the Scénarios page and the test
+// list/creation/correction tabs.
+export function renderGherkin(text: string) {
+  return text
+    .split("\n")
+    .map((line) => {
+      const kw = GHERKIN_KEYWORDS.find((k) => line.trimStart().startsWith(k));
+      const safe = escHtml(line);
+      if (!kw) return safe;
+      const safeKw = escHtml(kw);
+      return safe.replace(safeKw, `<span class="spec-keyword">${safeKw}</span>`);
+    })
+    .join("\n");
+}

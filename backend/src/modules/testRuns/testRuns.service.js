@@ -9,7 +9,7 @@ const RUN_TIMEOUT_MS = 300_000;
 // Owns every Playwright process launched from the UI (Tests page + pending
 // preview) — one shared in-memory map of runs, each buffering its console
 // lines so SSE clients can connect late and replay from the start.
-module.exports = function createTestRunsService({ paths, envLocal, testRunner, testsService }) {
+module.exports = function createTestRunsService({ paths, envLocal, testRunner, testsService, testMeta }) {
 	const { E2E_DIR, TESTS_DIR, PENDING_DIR } = paths;
 	const runs = new Map();
 
@@ -47,7 +47,8 @@ module.exports = function createTestRunsService({ paths, envLocal, testRunner, t
 	// JWT_PRIVATE_KEY, GitHub/Anthropic credentials), and runs as the
 	// restricted e2erunner account whenever one is configured, so it can't
 	// read them off disk either.
-	function startTestRun(filename, baseUrl, envVars) {
+	function startTestRun(filename, baseUrl, environment) {
+		const envVars = environment?.variables;
 		const { runId, run } = createRun();
 		const startTime = Date.now();
 
@@ -83,6 +84,14 @@ module.exports = function createTestRunsService({ paths, envLocal, testRunner, t
 		proc.on("close", async (code) => {
 			clearTimeout(autoKillTimer);
 			run.status = code === 0 ? "passed" : "failed";
+			// Lifecycle metadata for the "Liste des tests" tab: remember the
+			// environment this run targeted, and the duration when it passed.
+			testMeta.recordRun(filename.replace(/\.spec\.ts$/, ""), {
+				success: code === 0,
+				durationMs: Date.now() - startTime,
+				environmentId: environment?.id ?? null,
+				environmentName: environment?.name ?? null,
+			});
 			if (code === 0) await testsService.recordRunDuration(filename, Date.now() - startTime);
 			const newEstimatedMs = testsService.estimatedMs(await testsService.loadRunHistory(), filename);
 			const msg = `data: ${JSON.stringify({ done: true, status: run.status, estimatedMs: newEstimatedMs })}\n\n`;

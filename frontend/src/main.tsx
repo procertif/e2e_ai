@@ -5,7 +5,6 @@ import "./styles/index.css";
 import App from "./App";
 import { I18nProvider } from "./i18n/I18nContext";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
-import { ChatProvider } from "./chat/ChatContext";
 import { QueueProvider } from "./queue/QueueContext";
 import { EnvironmentProvider } from "./environment/EnvironmentContext";
 import { CampaignQueueProvider } from "./campaigns/CampaignQueueContext";
@@ -21,11 +20,9 @@ function DataProviders({ children }: { children: ReactNode }) {
   return (
     <EnvironmentProvider key={`auth-${isAuthenticated}`}>
       <AiQueueProvider>
-        <ChatProvider>
-          <QueueProvider>
-            <CampaignQueueProvider>{children}</CampaignQueueProvider>
-          </QueueProvider>
-        </ChatProvider>
+        <QueueProvider>
+          <CampaignQueueProvider>{children}</CampaignQueueProvider>
+        </QueueProvider>
       </AiQueueProvider>
     </EnvironmentProvider>
   );

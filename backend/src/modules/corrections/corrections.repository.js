@@ -9,7 +9,7 @@ const { isSafeTestFilename } = require("../../core/safeNames");
 // per test under data/corrections/ — deliberately NOT under data/versioned/,
 // since a draft mid-fix isn't ready to be pushed to the backup repo. The
 // real spec file in TESTS_DIR is only touched on validate().
-module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_DIR }) {
+module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_DIR, testMeta }) {
 	const pending = new Map();
 
 	function recordPath(filename) {
@@ -107,6 +107,51 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		return failed.map((t) => summarize(pending.get(t.filename)));
 	}
 
+	// Puts a single test into correction outside any campaign (the execution
+	// queue's "send to correction" button). Same semantics as
+	// createForCampaign when the test is already pending: the fix in
+	// progress is kept, only the "latest failure" context is refreshed.
+	function createForTest(filename, { consoleOutput = "", environmentId = null, environmentName = null } = {}) {
+		if (!isSafeTestFilename(filename)) throw new Error("Invalid filename.");
+		const filePath = path.join(TESTS_DIR, filename);
+		const existing = pending.get(filename);
+		if (existing) {
+			if (environmentId != null) {
+				existing.environmentId = environmentId;
+				existing.environmentName = environmentName;
+			}
+			if (consoleOutput) {
+				existing.consoleOutput = consoleOutput;
+				// Same rule as createForCampaign: an ongoing chat reasoned on the
+				// previous console — flag it so the next turn re-injects context.
+				if ((existing.chatMessages || []).length > 0) existing.contextStale = true;
+			}
+			persist(existing);
+			return summarize(existing);
+		}
+		if (!fs.existsSync(filePath)) throw new Error("Unknown test.");
+		const content = fs.readFileSync(filePath, "utf-8");
+		const entry = {
+			filename,
+			campaignId: null,
+			campaignTitle: null,
+			environmentId,
+			environmentName,
+			consoleOutput: consoleOutput || "",
+			createdAt: Date.now(),
+			originalContent: content,
+			draftContent: content,
+			chatMessages: [],
+			aiEdited: false,
+			userEdited: false,
+			lastRunStatus: null,
+			lastRunWasEdited: false,
+		};
+		pending.set(filename, entry);
+		persist(entry);
+		return summarize(entry);
+	}
+
 	// source distinguishes who touched the draft — surfaced in the list as
 	// "AI corrected" / "user corrected" indicators (either or both can end up
 	// true on the same test).
@@ -162,6 +207,15 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		persist(entry);
 	}
 
+	// Scenario-edition proposal from the correction AI (ProposeScenarioEdit
+	// tool) — pass null to clear (accepted or dismissed by the user).
+	function setScenarioEditProposal(filename, proposal) {
+		const entry = pending.get(filename);
+		if (!entry) return;
+		entry.scenarioEditProposal = proposal || null;
+		persist(entry);
+	}
+
 	function clearContextStale(filename) {
 		const entry = pending.get(filename);
 		if (!entry || !entry.contextStale) return;
@@ -177,6 +231,7 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		if (!entry) throw new Error("Test not in correction.");
 		fs.mkdirSync(TESTS_DIR, { recursive: true });
 		fs.writeFileSync(path.join(TESTS_DIR, filename), entry.draftContent);
+		testMeta?.markUpdated(filename.replace(/\.spec\.ts$/, ""));
 		pending.delete(filename);
 		unpersist(filename);
 		return { filename };
@@ -188,5 +243,5 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		return existed;
 	}
 
-	return { list, get, createForCampaign, updateDraft, validate, remove, getChatMessages, setChatMessages, clearContextStale, setLastRunStatus, isSafeTestFilename };
+	return { list, get, createForCampaign, createForTest, updateDraft, validate, remove, getChatMessages, setChatMessages, clearContextStale, setLastRunStatus, setScenarioEditProposal, isSafeTestFilename };
 };
