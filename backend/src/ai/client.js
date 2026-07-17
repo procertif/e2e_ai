@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const https = require("https");
 const { withCachedTail } = require("./history");
-const { classicSystemBlocks } = require("./prompts");
+const { IDENTITY_BLOCK } = require("./prompts");
 const TOOLS = require("./tools/definitions");
 
 // Thin Anthropic API client: OAuth token management (Claude Code
@@ -77,9 +77,10 @@ module.exports = function createAnthropicClient({ envLocal, promptsConfig }) {
 	// { type: "tool_start", name, id, input } as they arrive; resolves with
 	// { stopReason, content, usage } once the turn is complete.
 	function callClaudeStream(token, messages, onEvent, instructions, signal, baseSystemBlocks, toolsOverride) {
-		// Re-resolved on every call so a prompt edit on the Configuration page
-		// applies to the next model turn without a restart.
-		const systemBlocks = (baseSystemBlocks || (promptsConfig ? promptsConfig.classicBlocks() : classicSystemBlocks())).map((b) => ({ ...b }));
+		// Every run kind passes its own systemBlocks; the fallback (bare
+		// identity block, required by the OAuth "cli" app profile) only serves
+		// promptless calls like the Gherkin spec generator.
+		const systemBlocks = (baseSystemBlocks || [IDENTITY_BLOCK]).map((b) => ({ ...b }));
 		if (instructions && instructions.trim()) {
 			systemBlocks.push({ type: "text", text: instructions.trim() });
 		}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComments, faWrench, faListOl, faWandMagicSparkles, faRotateLeft, faDownload, faUpload, faFloppyDisk } from "@fortawesome/free-solid-svg-icons";
+import { faWrench, faListOl, faWandMagicSparkles, faRotateLeft, faDownload, faUpload, faFloppyDisk } from "@fortawesome/free-solid-svg-icons";
 import { apiFetch } from "../api";
 import { useI18n } from "../i18n/I18nContext";
 import "../styles/configuration.css";
@@ -10,13 +10,12 @@ interface PromptEntry {
   default: string;
 }
 
-type PromptKey = "classic" | "correction" | "creation" | "scenario";
+type PromptKey = "correction" | "creation" | "scenario";
 type PromptsConfig = Record<PromptKey, PromptEntry>;
 
-const PROMPT_KEYS: PromptKey[] = ["classic", "correction", "creation", "scenario"];
+const PROMPT_KEYS: PromptKey[] = ["correction", "creation", "scenario"];
 
 const MENU = [
-  { key: "classic" as PromptKey, i18nKey: "config_prompt_classic_title", icon: faComments },
   { key: "correction" as PromptKey, i18nKey: "config_prompt_correction_title", icon: faWrench },
   { key: "creation" as PromptKey, i18nKey: "config_prompt_creation_title", icon: faWandMagicSparkles },
   { key: "scenario" as PromptKey, i18nKey: "config_prompt_scenario_title", icon: faListOl },
@@ -25,8 +24,8 @@ const MENU = [
 export default function ConfigurationPage() {
   const { t } = useI18n();
   const [config, setConfig] = useState<PromptsConfig | null>(null);
-  const [drafts, setDrafts] = useState<Record<PromptKey, string>>({ classic: "", correction: "", creation: "", scenario: "" });
-  const [active, setActive] = useState<PromptKey>("classic");
+  const [drafts, setDrafts] = useState<Record<PromptKey, string>>({ correction: "", creation: "", scenario: "" });
+  const [active, setActive] = useState<PromptKey>("correction");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,6 @@ export default function ConfigurationPage() {
   const applyConfig = (data: PromptsConfig) => {
     setConfig(data);
     setDrafts({
-      classic: data.classic.value ?? data.classic.default,
       correction: data.correction.value ?? data.correction.default,
       creation: data.creation.value ?? data.creation.default,
       scenario: data.scenario.value ?? data.scenario.default,

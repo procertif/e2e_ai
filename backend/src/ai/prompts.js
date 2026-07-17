@@ -12,17 +12,6 @@ const STEP_TIMEOUT_POLICY = `Step timeout policy — MANDATORY in every spec you
 - ONLY exception: waits on operations the app is genuinely still processing and shows as such (an upload/progress bar reaching 100%, a long report generation with a visible spinner, …). Those waits may exceed 10s, but keep them as tight as the operation really needs and add a one-line comment justifying the exception.
 - Never set test.setTimeout above 300_000 — the runner hard-kills the process shortly after that.`;
 
-const DEFAULT_CLASSIC_INSTRUCTIONS = `You have access to exactly 6 tools, each scoped to this e2e test project — no other filesystem or shell access exists:
-- WriteTestFile: create or edit a test spec (data/versioned/tests/<testname>.spec.ts) or its action list (data/actionTest/<testname>.json).
-- ReadDataFile: read-only, only data/ (tests, actionTest, screenshots, testedRepositories…) and src/testUtils.ts are reachable.
-- ListEnvironmentVariables: keys and descriptions (never values) for the environment currently targeted in this conversation.
-- RunTest: execute a spec against that same target environment and get its console output.
-- FindSelector: read-only search over data/testedRepositories/<branch>/ — <branch> is the repository branch linked to the conversation's target environment (configured/fetched on the Environments page; not necessarily set for every environment). That's the real tested-app source; use it to find exact selectors instead of guessing, and read a full file under that same path with ReadDataFile once you know where to look.
-- WebFetch: fetch a URL as plain text.
-testname is always a bare name with no extension and no path (e.g. "creation_question_qcm"), used consistently across WriteTestFile and RunTest.
-
-${STEP_TIMEOUT_POLICY}`;
-
 const DEFAULT_CORRECTION_INSTRUCTIONS = `You are helping fix ONE specific failing Playwright test: {filename}. This conversation is scoped to that single test — the human already saw its console error and gave you the failing code and console output in their first message below. You have access to exactly 7 tools, no other filesystem or shell access exists:
 - WriteTestFile: applies directly to this test's in-progress draft (not yet saved to the real file — the human validates that separately once satisfied). testname/kind are ignored, it always targets {filename}. mode "create" replaces the whole draft with content; mode "edit" replaces old_string with new_string in the current draft.
 - ReadDataFile: read-only, only data/ (tests, actionTest, screenshots, testedRepositories…) and src/testUtils.ts are reachable.
@@ -73,10 +62,6 @@ Work method:
 1. Ground the scenario in reality: before proposing behavior, check the application source with FindSelector/ReadDataFile (and existing similar scenarios under data/versioned/scenarios/) so the specification matches what the app actually does. Never invent features.
 2. NEVER paste the specification — not even a draft or an excerpt of it — in your chat reply. The "Résultat attendu" zone above the chat is the only place the user reads it, and it updates exclusively through WriteScenarioSpec. Whenever you have a proposal or a revision (including the very first draft), write it immediately with WriteScenarioSpec; your reply must only summarize in one or two sentences what you wrote and ask for feedback.
 3. If the user's request contradicts how the application actually behaves, say so explicitly instead of writing a specification the app can never satisfy.`;
-
-function classicSystemBlocks(instructions) {
-	return [IDENTITY_BLOCK, { type: "text", text: instructions || DEFAULT_CLASSIC_INSTRUCTIONS }];
-}
 
 function correctionSystemBlocks(filename, instructions) {
 	const template = instructions || DEFAULT_CORRECTION_INSTRUCTIONS;
@@ -133,11 +118,10 @@ function environmentContext(environment) {
 }
 
 module.exports = {
-	DEFAULT_CLASSIC_INSTRUCTIONS,
+	IDENTITY_BLOCK,
 	DEFAULT_CORRECTION_INSTRUCTIONS,
 	DEFAULT_CREATION_INSTRUCTIONS,
 	DEFAULT_SCENARIO_INSTRUCTIONS,
-	classicSystemBlocks,
 	correctionSystemBlocks,
 	creationSystemBlocks,
 	scenarioSystemBlocks,
