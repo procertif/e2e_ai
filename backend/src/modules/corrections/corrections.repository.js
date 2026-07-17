@@ -230,7 +230,9 @@ module.exports = function createCorrectionsRepository({ TESTS_DIR, CORRECTIONS_D
 		const entry = pending.get(filename);
 		if (!entry) throw new Error("Test not in correction.");
 		fs.mkdirSync(TESTS_DIR, { recursive: true });
-		fs.writeFileSync(path.join(TESTS_DIR, filename), entry.draftContent);
+		const confirmedPath = path.join(TESTS_DIR, filename);
+		fs.writeFileSync(confirmedPath, entry.draftContent);
+		try { fs.chmodSync(confirmedPath, 0o640); } catch {} // restore group-read for e2erunner (umask 077 strips it)
 		testMeta?.markUpdated(filename.replace(/\.spec\.ts$/, ""));
 		pending.delete(filename);
 		unpersist(filename);

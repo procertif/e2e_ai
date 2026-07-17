@@ -30,4 +30,10 @@ mkdir -p /app/data/screenshots
 chown -R e2erunner:e2erunner /app/data/screenshots 2>/dev/null || true
 chmod -R u+rwX /app/data/screenshots 2>/dev/null || true
 
+# Playwright's outputDir (playwright.config.ts) — the runner itself, running
+# as e2erunner, writes traces/last-run info there.
+mkdir -p /app/data/test-results
+chown -R e2erunner:e2erunner /app/data/test-results 2>/dev/null || true
+chmod -R u+rwX /app/data/test-results 2>/dev/null || true
+
 exec "$@"
