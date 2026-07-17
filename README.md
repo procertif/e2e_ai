@@ -130,7 +130,22 @@ L'image embarque Node + Chromium ; `data/`, `.env`, `backend/`, `src/` sont bind
 
 ### Mise à jour automatique (`deploy/`)
 
-Sur la machine de déploiement : timer systemd qui vérifie `origin/main` (fetch anonyme — repo public ; `DEPLOY_REPO_PAT` en lecture seule à poser dans le `.env` seulement si le repo devient privé) et fait `git pull + compose up -d --build` quand un commit arrive. Cadence via `DEPLOY_UPDATE_INTERVAL_SECONDS`. Installation : voir en-tête de `deploy/auto-update.sh`.
+Sur la machine de déploiement, un **timer systemd côté hôte** (pas dans le conteneur — c'est l'hôte qui pilote Docker) vérifie `origin/main` et, quand un commit arrive, fait `git pull --ff-only` puis `docker compose up -d --build` : l'image est rebuildée (couches lourdes en cache) et le conteneur **remplacé**. Fetch anonyme (repo public) ; `DEPLOY_REPO_PAT` en lecture seule à poser dans le `.env` seulement si le repo devient privé.
+
+**Installation — une fois par machine** (les fichiers de `deploy/` ne sont que des modèles, rien ne les installe automatiquement) :
+
+```bash
+# adapter /opt/e2e_ai si le repo est cloné ailleurs (aussi dans le .service)
+sudo cp /opt/e2e_ai/deploy/e2e-update.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now e2e-update.timer   # persistant après reboot, démarre tout de suite
+```
+
+- Cadence : `DEPLOY_UPDATE_INTERVAL_SECONDS` dans le `.env` (défaut 300 s) — appliqué au tick suivant, sans `daemon-reload`.
+- Le script (`deploy/auto-update.sh`) se met à jour tout seul via le `git pull` ; seuls des changements aux fichiers `.service`/`.timer` demandent de re-copier + `daemon-reload`.
+- À jour = exécution silencieuse ; build raté = l'ancien conteneur reste en place, retry au tick suivant ; commits locaux sur la machine = le `--ff-only` refuse et log, intervention manuelle.
+- Suivi : `journalctl -u e2e-update.service -f` · état : `systemctl list-timers e2e-update.timer`.
+- Un déploiement en plein run IA/test tue le run en cours : la file IA redémarre **en pause** avec ses tâches, bouton Reprendre dans l'UI.
 
 ## Structure de `data/`
 

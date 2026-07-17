@@ -4,7 +4,13 @@ WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
-RUN npx playwright install chromium --with-deps
+
+# Browsers in a fixed, world-readable location instead of root's HOME
+# (/root/.cache) — the tests run as the unprivileged e2erunner account,
+# whose HOME is /nonexistent, so it could never reach the default path.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright install chromium --with-deps \
+	&& chmod -R a+rX /ms-playwright
 
 COPY backend/package*.json ./backend/
 COPY backend/prisma ./backend/prisma/

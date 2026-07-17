@@ -63,6 +63,9 @@ module.exports = function createTestRunsService({ paths, envLocal, testRunner, t
 					PATH: envLocal.PATH || process.env.PATH,
 					HOME: testRunner.identity.uid ? testRunner.home : process.env.HOME,
 					HEADLESS: envLocal.HEADLESS || process.env.HEADLESS,
+					// In Docker the browsers live in a shared path (see Dockerfile),
+					// not in the runner's HOME — forward it through the minimal env.
+					...(process.env.PLAYWRIGHT_BROWSERS_PATH ? { PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH } : {}),
 					...(baseUrl ? { BASE_URL: baseUrl } : {}),
 					E2E_ENV_VARS: envVarsToJson(envVars),
 				},

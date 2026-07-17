@@ -59,6 +59,9 @@ module.exports = function createRunTest({ E2E_DIR, TESTS_DIR, PENDING_DIR, testR
 						PATH: process.env.PATH,
 						HOME: testRunner.identity.uid ? testRunner.home : process.env.HOME,
 						HEADLESS: "true",
+						// In Docker the browsers live in a shared path (see Dockerfile),
+						// not in the runner's HOME — forward it through the minimal env.
+						...(process.env.PLAYWRIGHT_BROWSERS_PATH ? { PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH } : {}),
 						...(environment?.url ? { BASE_URL: environment.url } : {}),
 						E2E_ENV_VARS: envVarsToJson(environment?.variables),
 					},
